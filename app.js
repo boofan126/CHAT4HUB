@@ -643,23 +643,30 @@ async function sendMessage() {
     };
   } else {
     const sig = await signMessage(text);
-    msg = {
+    // 关键：不要写 file:undefined —— Gun 对 `file:undefined` 会报 "Invalid data: undefined" 并拒绝同步，
+    // 导致对方收不到（这是加附件功能后引入、且会让【纯文本消息也失效】的回归）。无附件时【完全不带 file 字段】，
+    // 以恢复「加附件前可正常互发」的状态。
+    const msgBase = {
       id: crypto.randomUUID(), kind: 'channel', ctx: state.context.id,
       address: state.address, pubRawB64: state.signPubB64, dhPub: state.dhPubB64,
       nick: state.nickname,
-      ts: Date.now(), text, file: file || undefined, sig,
+      ts: Date.now(), text, sig,
     };
+    if (file) msgBase.file = file;   // 仅在有附件时挂上对象（仅供本机渲染；上链前会转成 fileJson）
+    msg = msgBase;
   }
   await saveMessage(msg);
   input.value = '';
   state.pendingFile = null; clearAttachPreview();   // 清空待发附件
   await renderMessages();
   if (state.syncOn && gun) {
-    // 频道附件要先转成顶层 fileJson 字符串再上链，否则 Gun 会把嵌套的 file 对象拆成图引用，
-    // 接收端（含本机重载后）拿到的是引用而非真实数据 → 显示 file(0B)。私聊的附件在加密密文里，不受影响。
-    const wire = (msg.kind === 'channel' && msg.file)
-      ? { ...msg, file: undefined, fileJson: JSON.stringify(msg.file) }
-      : msg;
+    // 上链（Gun 中继）规则：
+    // ① 纯文本（无 file）→ 不带任何 file 字段（恢复加附件前可正常同步的状态）；
+    // ② 有附件 → 把嵌套的 file 对象转成【顶层字符串 fileJson】，并删掉 file（Gun 会把嵌套对象拆成图引用，
+    //    接收端/本机重载后会拿到引用而非真实数据 → 显示 file(0B)）。私聊的附件在加密密文里，不受影响。
+    const wire = { ...msg };
+    if (msg.kind === 'channel' && msg.file) { delete wire.file; wire.fileJson = JSON.stringify(msg.file); }
+    else if (msg.kind === 'channel') { delete wire.file; }   // 兜底：去掉可能残留的 file:undefined
     gun.get('web3chat').get(msg.id).put(wire);
   }
 }
