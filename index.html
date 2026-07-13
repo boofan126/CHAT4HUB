@@ -58,6 +58,10 @@
           <div class="panel-head" data-i18n="myPubKey">我的公钥</div>
           <code id="myPub" data-i18n-title="myPubHint" title="把这段发给对方，对方才能给你发加密私聊">—</code>
           <button class="btn ghost sm" id="copyPubBtn" data-i18n="copy">复制</button>
+          <div class="row nick-row">
+            <span class="nick-label" data-i18n="nickLabel">昵称</span>
+            <input type="text" id="nickInput" maxlength="20" data-i18n-ph="nickPh" placeholder="你的昵称（本机显示，并随消息发给对方）" spellcheck="false" />
+          </div>
         </section>
       </aside>
 
@@ -77,10 +81,6 @@
         <input type="checkbox" id="syncToggle" />
         <span data-i18n="syncLabel">去中心化同步（GunDB P2P）</span>
       </label>
-      <div class="row">
-        <span class="nick-label" data-i18n="nickLabel">昵称</span>
-        <input type="text" id="nickInput" maxlength="20" data-i18n-ph="nickPh" placeholder="你的昵称（本机显示，并随消息发给对方）" spellcheck="false" />
-      </div>
       <div class="row">
         <input type="text" id="relayInput" data-i18n-ph="relayPh" placeholder="中继地址，如 http://localhost:8765/gun" spellcheck="false" />
       </div>
