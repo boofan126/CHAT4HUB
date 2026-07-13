@@ -27,6 +27,7 @@ const I18N = {
     import: '导入', importTitle: '导入已导出的身份',
     logout: '登出', logoutTitle: '清空本地身份与所有记录',
     channels: '频道 Channels',
+    chanList: '频道列表',
     newChannelPh: '新频道名',
     join: '加入',
     friends: '好友 Friends',
@@ -121,6 +122,7 @@ const I18N = {
     import: 'Import', importTitle: 'Import a previously exported identity',
     logout: 'Logout', logoutTitle: 'Clear local identity and all records',
     channels: 'Channels',
+    chanList: 'Channel List',
     newChannelPh: 'New channel name',
     join: 'Join',
     friends: 'Friends',
@@ -215,6 +217,7 @@ const I18N = {
     import: 'Importieren', importTitle: 'Zuvor exportierte Identität importieren',
     logout: 'Abmelden', logoutTitle: 'Lokale Identität und alle Datensätze löschen',
     channels: 'Kanäle / Channels',
+    chanList: 'Kanal-Liste',
     newChannelPh: 'Neuer Kanalname',
     join: 'Beitreten',
     friends: 'Freunde / Friends',
@@ -880,13 +883,8 @@ function renderCtxHeader() {
 function renderChannelList() {
   const ul = $('channelList'); ul.innerHTML = '';
   const list = state.channels;
-  const expanded = state.listExpanded.channels;
-  let shown = expanded ? list : list.slice(0, 5);
-  // 折叠态下，确保当前所在频道始终可见（替换末位）
-  if (!expanded && state.context.type === 'channel' && state.context.id && !shown.includes(state.context.id) && list.includes(state.context.id)) {
-    shown = shown.slice(0, 4).concat(state.context.id);
-  }
-  for (const name of shown) {
+  // 频道列表面板独立可折叠，这里直接展示全部频道（不再前5截断）
+  for (const name of list) {
     const li = document.createElement('li');
     if (state.context.type === 'channel' && state.context.id === name) li.className = 'active';
     const canDel = name !== 'global';   // 默认频道 global 不可删
@@ -898,7 +896,7 @@ function renderChannelList() {
     });
     ul.appendChild(li);
   }
-  renderListMore('chanMoreBox', 'channels', list.length);
+  const box = $('chanMoreBox'); if (box) box.innerHTML = '';
 }
 // 删除频道：从列表移除（保护默认频道 global）并清理其本地消息
 async function deleteChannel(name) {
@@ -1494,7 +1492,7 @@ function bindUI() {
   });
 
   // 频道 / 好友 面板折叠开关
-  $('chanCollapse').addEventListener('click', () => togglePanel('chanPanel', 'channels'));
+  $('chanCollapse').addEventListener('click', () => togglePanel('chanListPanel', 'channels'));
   $('friendCollapse').addEventListener('click', () => togglePanel('friendPanel', 'friends'));
 
   // 「查看公钥」：点击弹窗展示完整公钥卡片，并支持复制

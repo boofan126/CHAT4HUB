@@ -47,12 +47,19 @@
         </section>
 
         <section class="panel" id="chanPanel">
-          <div class="panel-head" data-i18n="channels">频道 Channels <span class="collapse-toggle" id="chanCollapse" title="折叠/展开">▾</span></div>
+          <div class="panel-head" data-i18n="channels">频道 Channels</div>
           <div class="row">
             <input type="text" id="newChannel" data-i18n-ph="newChannelPh" placeholder="新频道名" maxlength="24" />
             <button class="btn primary sm" id="joinChannelBtn" data-i18n="join">加入</button>
           </div>
           <label class="chk"><input type="checkbox" id="privateChk" /> <span data-i18n="privateChk">🔒 私有（加密成员制）</span></label>
+        </section>
+
+        <section class="panel" id="chanListPanel">
+          <div class="panel-head">
+            <span data-i18n="chanList">频道列表</span>
+            <span class="collapse-toggle" id="chanCollapse" title="折叠/展开">▾</span>
+          </div>
           <ul class="list" id="channelList"></ul>
           <div class="list-more-box" id="chanMoreBox"></div>
         </section>
