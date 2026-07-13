@@ -110,6 +110,9 @@ const I18N = {
     openChannelHint: '开放频道：任何知道名称的人都能加入并查看消息。',
     newReq: (n) => (n > 1 ? n + ' 项新成员申请' : '1 项新成员申请'),
     memberList: (n) => '成员列表（' + n + '）',
+    welcomeTitle: '绝对安全的信息交流',
+    welcomeSub: '端到端加密 · 去中心化网络 · 你的密钥只在你手中',
+    enterApp: '开始使用 →',
   },
   en: {
     brandTitle: 'Web3 Local Chat',
@@ -206,6 +209,9 @@ const I18N = {
     openChannelHint: 'Open channel: anyone who knows the name can join and read messages.',
     newReq: (n) => (n > 1 ? n + ' new join requests' : '1 new join request'),
     memberList: (n) => 'Member list (' + n + ')',
+    welcomeTitle: 'Absolutely Secure Communication',
+    welcomeSub: 'End-to-end encryption · Decentralized network · Your keys stay with you',
+    enterApp: 'Get Started →',
   },
   de: {
     brandTitle: 'Web3 Lokaler Chat',
@@ -302,6 +308,9 @@ const I18N = {
     save: 'Speichern',
     cancel: 'Abbrechen',
     relaySaved: 'Relay-Adresse aktualisiert, verbinde neu…',
+    welcomeTitle: 'Absolut sichere Kommunikation',
+    welcomeSub: 'Ende-zu-Ende-Verschlüsselung · Dezentrales Netz · Deine Schlüssel bleiben bei dir',
+    enterApp: 'Loslegen →',
   },
 };
 let LANG = 'zh';
@@ -1537,6 +1546,9 @@ function bindUI() {
   $('memberBtn').addEventListener('click', openMemberModal);
   $('memberClose').addEventListener('click', closeMemberModal);
   $('memberMask').addEventListener('click', closeMemberModal);
+
+  // 欢迎页：点击「开始使用」隐藏首屏，露出主应用
+  $('enterBtn').addEventListener('click', () => { $('welcome').hidden = true; });
 }
 
 /* ---------- 启动 ---------- */

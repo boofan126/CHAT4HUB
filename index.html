@@ -9,6 +9,53 @@
   <script src="gun.js"></script>
 </head>
 <body>
+  <!-- 欢迎页（首屏，点击「开始使用」后隐藏） -->
+  <div id="welcome" class="welcome-screen">
+    <div class="welcome-bg" aria-hidden="true">
+      <div class="wg-grid"></div>
+      <div class="wg-glow wg-glow-1"></div>
+      <div class="wg-glow wg-glow-2"></div>
+      <svg class="wg-nodes" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+        <g class="wg-lines">
+          <line x1="120" y1="140" x2="380" y2="240"/>
+          <line x1="380" y1="240" x2="650" y2="130"/>
+          <line x1="650" y1="130" x2="890" y2="270"/>
+          <line x1="380" y1="240" x2="300" y2="470"/>
+          <line x1="650" y1="130" x2="730" y2="430"/>
+          <line x1="300" y1="470" x2="730" y2="430"/>
+          <line x1="890" y1="270" x2="730" y2="430"/>
+          <line x1="120" y1="140" x2="300" y2="470"/>
+        </g>
+        <g class="wg-dots">
+          <circle cx="120" cy="140" r="5"/>
+          <circle cx="380" cy="240" r="6"/>
+          <circle cx="650" cy="130" r="5"/>
+          <circle cx="890" cy="270" r="6"/>
+          <circle cx="300" cy="470" r="5"/>
+          <circle cx="730" cy="430" r="6"/>
+        </g>
+      </svg>
+    </div>
+    <div class="welcome-content">
+      <svg class="welcome-logo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="wglogo" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#2de2c4"/><stop offset="1" stop-color="#6c8cff"/>
+          </linearGradient>
+        </defs>
+        <path d="M32 4 L56 13 V31 C56 47 45 56 32 61 C19 56 8 47 8 31 V13 Z" stroke="url(#wglogo)" stroke-width="3.5" stroke-linejoin="round"/>
+        <rect x="23" y="29" width="18" height="14" rx="2.5" stroke="url(#wglogo)" stroke-width="3"/>
+        <path d="M27 29 v-3 a5 5 0 0 1 10 0 v3" stroke="url(#wglogo)" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="32" cy="35" r="2.2" fill="url(#wglogo)"/>
+        <path d="M32 37.2 V41" stroke="url(#wglogo)" stroke-width="2.4" stroke-linecap="round"/>
+      </svg>
+      <h1 class="welcome-title" data-i18n="welcomeTitle">绝对安全的信息交流</h1>
+      <p class="welcome-sub" data-i18n="welcomeSub">端到端加密 · 去中心化网络 · 你的密钥只在你手中</p>
+      <button class="btn primary lg" id="enterBtn" data-i18n="enterApp">开始使用 →</button>
+      <p class="welcome-foot">Web3Chat · 隐私优先的本地加密聊天</p>
+    </div>
+  </div>
+
   <div class="app">
     <!-- 顶部栏（精简：仅品牌 + 汉堡） -->
     <header class="topbar">
