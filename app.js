@@ -536,8 +536,8 @@ async function loadMeta() {
   const relay = await idbGet('meta', 'relayUrl');
   state.relayUrl = (relay && relay.value) ? relay.value : RELAY_URL;
   const lang = await idbGet('meta', 'lang');
-  // 默认英文（不再跟随浏览器语言自动设置）；用户可在欢迎页/界面手动切换中/EN
-  LANG = (lang && I18N[lang.value]) ? lang.value : 'en';
+  // 未手动选过语言时，跟随浏览器语言自动设置（detectLang 读 navigator.languages）
+  LANG = (lang && I18N[lang.value]) ? lang.value : detectLang();
   const last = await idbGet('meta', 'lastCtx');
   if (last && last.value) state.context = last.value;
   // 路线 B：恢复本机持有的私有频道密钥 K
