@@ -35,6 +35,8 @@ const I18N = {
     myPubHint: '把这段发给对方，对方才能给你发加密私聊',
     viewPub: '查看公钥',
     pubHintBody: '把下面这串公钥卡片发给好友，对方即可添加你并收发端到端加密私聊：',
+    showAll: (n) => '显示全部 ' + n + ' 条',
+    collapseList: '收起',
     copy: '复制',
     ctxNone: '# 未选择',
     dmPrefix: '🔒 私聊 · ',
@@ -127,6 +129,8 @@ const I18N = {
     myPubHint: 'Send this to others so they can send you encrypted DMs',
     viewPub: 'View Public Key',
     pubHintBody: 'Send the public key card below to friends so they can add you and exchange end-to-end encrypted DMs:',
+    showAll: (n) => 'Show all ' + n,
+    collapseList: 'Collapse',
     copy: 'Copy',
     ctxNone: '# none',
     dmPrefix: '🔒 DM · ',
@@ -219,6 +223,8 @@ const I18N = {
     myPubHint: 'Sende dies an andere, damit sie dir verschlüsselte DMs senden können',
     viewPub: 'Öffentlichen Schlüssel anzeigen',
     pubHintBody: 'Sende die Schlüsselkarte unten an Freunde, damit sie dich hinzufügen und Ende-zu-Ende-verschlüsselte DMs austauschen können:',
+    showAll: (n) => 'Alle ' + n + ' anzeigen',
+    collapseList: 'Einklappen',
     copy: 'Kopieren',
     ctxNone: '# Keine Auswahl',
     dmPrefix: '🔒 DM · ',
@@ -426,6 +432,8 @@ const state = {
   channelMeta: {},        // name -> { kind, creator, keyVersion, members:{}, approvers:{}, membersDh:{} }（网络明文元数据缓存）
   channelRequests: {},    // name -> { addr: { encFrom, ts } }  （待批准申请缓存）
   addrNick: {},           // address -> 最近一次使用的昵称（从消息/申请里收集，用于成员列表展示）
+  listExpanded: { channels: false, friends: false },  // 列表是否展开全部（默认仅前5）
+  panelCollapsed: { channels: false, friends: false }, // 频道/好友面板是否整体折叠
 };
 const seen = new Set();
 
@@ -871,7 +879,14 @@ function renderCtxHeader() {
 /* ---------- 侧边栏渲染 ---------- */
 function renderChannelList() {
   const ul = $('channelList'); ul.innerHTML = '';
-  for (const name of state.channels) {
+  const list = state.channels;
+  const expanded = state.listExpanded.channels;
+  let shown = expanded ? list : list.slice(0, 5);
+  // 折叠态下，确保当前所在频道始终可见（替换末位）
+  if (!expanded && state.context.type === 'channel' && state.context.id && !shown.includes(state.context.id) && list.includes(state.context.id)) {
+    shown = shown.slice(0, 4).concat(state.context.id);
+  }
+  for (const name of shown) {
     const li = document.createElement('li');
     if (state.context.type === 'channel' && state.context.id === name) li.className = 'active';
     const canDel = name !== 'global';   // 默认频道 global 不可删
@@ -883,6 +898,7 @@ function renderChannelList() {
     });
     ul.appendChild(li);
   }
+  renderListMore('chanMoreBox', 'channels', list.length);
 }
 // 删除频道：从列表移除（保护默认频道 global）并清理其本地消息
 async function deleteChannel(name) {
@@ -901,7 +917,14 @@ async function deleteChannel(name) {
 }
 function renderFriendList() {
   const ul = $('friendList'); ul.innerHTML = '';
-  for (const f of state.friends.values()) {
+  const list = [...state.friends.values()];
+  const expanded = state.listExpanded.friends;
+  let shown = expanded ? list : list.slice(0, 5);
+  // 折叠态下，确保当前私聊对象始终可见（替换末位）
+  if (!expanded && state.context.type === 'dm' && state.context.peer && !shown.includes(state.context.peer) && list.includes(state.context.peer)) {
+    shown = shown.slice(0, 4).concat(state.context.peer);
+  }
+  for (const f of shown) {
     const li = document.createElement('li');
     const active = state.context.type === 'dm' && state.context.peer && state.context.peer.address === f.address;
     if (active) li.className = 'active';
@@ -909,7 +932,32 @@ function renderFriendList() {
     li.addEventListener('click', (e) => { if (e.target.classList.contains('del')) { removeFriend(f.address); } else { switchToDM(f); } });
     ul.appendChild(li);
   }
+  renderListMore('friendMoreBox', 'friends', list.length);
 }
+
+// 列表「显示前5 / 全部」切换按钮（仅当条目 >5 时显示）
+function renderListMore(boxId, key, total) {
+  const box = $(boxId);
+  if (!box) return;
+  box.innerHTML = '';
+  if (total <= 5) return;
+  const btn = document.createElement('button');
+  btn.className = 'list-more';
+  btn.textContent = state.listExpanded[key] ? t('collapseList') : t('showAll', total);
+  btn.addEventListener('click', () => {
+    state.listExpanded[key] = !state.listExpanded[key];
+    if (key === 'channels') renderChannelList(); else renderFriendList();
+  });
+  box.appendChild(btn);
+}
+
+// 面板折叠 / 展开（频道、好友）
+function togglePanel(panelId, key) {
+  state.panelCollapsed[key] = !state.panelCollapsed[key];
+  const p = $(panelId);
+  if (state.panelCollapsed[key]) p.classList.add('collapsed'); else p.classList.remove('collapsed');
+}
+
 // 公钥改为「点击查看」→ 弹窗展示，不再直接显示明文
 function renderMyPub() {
   const el = $('pubContent');
@@ -1444,6 +1492,10 @@ function bindUI() {
       alert(t('friendAdded') + shortAddr(addr));
     } catch (err) { alert(t('addFailed') + err.message); }
   });
+
+  // 频道 / 好友 面板折叠开关
+  $('chanCollapse').addEventListener('click', () => togglePanel('chanPanel', 'channels'));
+  $('friendCollapse').addEventListener('click', () => togglePanel('friendPanel', 'friends'));
 
   // 「查看公钥」：点击弹窗展示完整公钥卡片，并支持复制
   $('viewPubBtn').addEventListener('click', () => {
