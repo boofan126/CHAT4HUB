@@ -106,8 +106,12 @@ html, body {
 .composer input { flex: 1; background: var(--panel-2); border: 1px solid #2a3a63; border-radius: 12px; color: var(--text); padding: 12px 14px; font-size: 14px; }
 .composer input:focus { outline: none; border-color: var(--accent); }
 
-/* 设置区 */
-.settings { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; background: var(--panel); border: 1px solid #233156; border-radius: 12px; padding: 10px 14px; font-size: 13px; }
+/* 同步面板（已移入侧边栏） */
+.sync-panel { display: flex; flex-direction: column; gap: 8px; }
+.sync-panel .switch { margin-top: 2px; }
+.sync-panel .row { margin-bottom: 0; }
+.sync-panel .backup-row { gap: 6px; }
+.sync-panel .hint { display: block; line-height: 1.4; }
 .switch { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .hint { color: var(--muted); font-size: 12px; }
 
@@ -158,10 +162,9 @@ html, body {
   /* 聊天区全宽 */
   .main { border-radius: 12px; }
 
-  /* 设置区纵向堆叠 */
-  .settings { flex-direction: column; align-items: stretch; gap: 8px; }
-  .settings .row { width: 100%; }
-  .settings .row input { width: 100%; }
+  /* 同步面板（侧栏内）纵向堆叠、行占满 */
+  .sync-panel .row { width: 100%; }
+  .sync-panel .row input { width: 100%; }
 
   /* 消息气泡更宽，列表更高 */
   .msg { max-width: 90%; }

@@ -63,6 +63,23 @@
             <input type="text" id="nickInput" maxlength="20" data-i18n-ph="nickPh" placeholder="你的昵称（本机显示，并随消息发给对方）" spellcheck="false" />
           </div>
         </section>
+
+        <section class="panel sync-panel">
+          <div class="panel-head" data-i18n="syncTitle">同步 Sync</div>
+          <label class="switch">
+            <input type="checkbox" id="syncToggle" />
+            <span data-i18n="syncLabel">去中心化同步（GunDB P2P）</span>
+          </label>
+          <div class="row">
+            <input type="text" id="relayInput" data-i18n-ph="relayPh" placeholder="中继地址，如 http://localhost:8765/gun" spellcheck="false" />
+          </div>
+          <div class="row backup-row">
+            <button class="btn ghost sm" id="exportMsgBtn" data-i18n-title="exportMsgsTitle" title="导出全部聊天记录（JSON）" data-i18n="exportMsgs">导出记录</button>
+            <button class="btn ghost sm" id="importMsgBtn" data-i18n-title="importMsgsTitle" title="从备份文件导入聊天记录" data-i18n="importMsgs">导入记录</button>
+            <input type="file" id="importMsgFile" accept="application/json" hidden />
+          </div>
+          <span class="hint" id="syncHint">关闭：聊天记录仅存于本浏览器（IndexedDB）。</span>
+        </section>
       </aside>
 
       <main class="main">
@@ -74,23 +91,6 @@
         </footer>
       </main>
     </div>
-
-    <!-- 设置区 -->
-    <section class="settings">
-      <label class="switch">
-        <input type="checkbox" id="syncToggle" />
-        <span data-i18n="syncLabel">去中心化同步（GunDB P2P）</span>
-      </label>
-      <div class="row">
-        <input type="text" id="relayInput" data-i18n-ph="relayPh" placeholder="中继地址，如 http://localhost:8765/gun" spellcheck="false" />
-      </div>
-      <div class="row backup-row">
-        <button class="btn ghost sm" id="exportMsgBtn" data-i18n-title="exportMsgsTitle" title="导出全部聊天记录（JSON）" data-i18n="exportMsgs">导出记录</button>
-        <button class="btn ghost sm" id="importMsgBtn" data-i18n-title="importMsgsTitle" title="从备份文件导入聊天记录" data-i18n="importMsgs">导入记录</button>
-        <input type="file" id="importMsgFile" accept="application/json" hidden />
-      </div>
-      <span class="hint" id="syncHint">关闭：聊天记录仅存于本浏览器（IndexedDB）。</span>
-    </section>
 
     <div class="overlay" id="overlay"></div>
   </div>
