@@ -234,7 +234,7 @@ const I18N = {
     closeTip: 'Close',
   },
 };
-let LANG = 'zh';
+let LANG = 'en';
 const LANG_ATTR = { zh: 'zh-CN', en: 'en' };
 function t(key, arg) {
   const v = (I18N[LANG] && I18N[LANG][key]) != null ? I18N[LANG][key] : (I18N.zh[key] != null ? I18N.zh[key] : key);
@@ -536,7 +536,8 @@ async function loadMeta() {
   const relay = await idbGet('meta', 'relayUrl');
   state.relayUrl = (relay && relay.value) ? relay.value : RELAY_URL;
   const lang = await idbGet('meta', 'lang');
-  LANG = (lang && I18N[lang.value]) ? lang.value : detectLang();
+  // 默认英文（不再跟随浏览器语言自动设置）；用户可在欢迎页/界面手动切换中/EN
+  LANG = (lang && I18N[lang.value]) ? lang.value : 'en';
   const last = await idbGet('meta', 'lastCtx');
   if (last && last.value) state.context = last.value;
   // 路线 B：恢复本机持有的私有频道密钥 K
@@ -685,13 +686,17 @@ function buildAttachment(file) {
   const wrap = document.createElement('div'); wrap.className = 'att-wrap';
   if (file.type && file.type.indexOf('image/') === 0) {
     const img = document.createElement('img');
-    img.className = 'att'; img.src = file.data; img.alt = file.name || 'image';
+    img.className = 'att'; img.src = file.data;
+    img.alt = (t('imgTag') + (file.name || 'image')).trim();
     img.addEventListener('click', () => window.open(file.data, '_blank'));
     wrap.appendChild(img);
+    const cap = document.createElement('div'); cap.className = 'att-cap';
+    cap.textContent = t('imgTag') + (file.name || 'image');
+    wrap.appendChild(cap);
   } else {
     const a = document.createElement('a');
     a.className = 'att-file'; a.href = file.data; a.download = file.name || 'file';
-    a.textContent = (file.name || 'file') + '  (' + formatSize(file.size || 0) + ')';
+    a.textContent = t('fileTag') + (file.name || 'file') + '  (' + formatSize(file.size || 0) + ')';
     wrap.appendChild(a);
   }
   return wrap;

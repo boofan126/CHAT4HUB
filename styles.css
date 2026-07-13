@@ -131,6 +131,7 @@ html, body {
 .att { display: block; max-width: 240px; max-height: 260px; border-radius: 10px; cursor: pointer; border: 1px solid #2a3a63; }
 .att-file { display: inline-block; margin-top: 4px; padding: 6px 10px; background: var(--panel-2); border: 1px solid #2a3a63; border-radius: 10px; color: var(--accent); text-decoration: none; font-size: 13px; }
 .att-file:hover { border-color: var(--accent); }
+.att-cap { margin-top: 4px; font-size: 12px; color: var(--muted); }
 
 .empty { margin: auto; color: var(--muted); text-align: center; font-size: 14px; }
 
