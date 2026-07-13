@@ -47,6 +47,8 @@ const I18N = {
     exportMsgsTitle: '导出全部聊天记录（JSON）', importMsgsTitle: '从备份文件导入聊天记录',
     importMsgOk: (n) => '已导入 ' + n + ' 条消息。',
     importMsgFail: '导入失败：',
+    attachTitle: '附加文件（图片随消息发送，≤ 1.2 MB）',
+    fileTooBig: '文件过大（已超过 1.2 MB 上限），请压缩后再试。',
     syncHintOff: '关闭：聊天记录仅存于本浏览器（IndexedDB）。',
     syncHintOn: (url) => '开启：消息经中继 ' + url + ' 同步，本机仍留存全部记录（私聊为密文）。',
     syncLive: (url) => '✅ 已连接中继 ' + url + '，联机同步中。',
@@ -103,6 +105,8 @@ const I18N = {
     nickPh: 'Your nickname (shown locally, sent to peers with messages)',
     exportMsgs: 'Export', importMsgs: 'Import',
     exportMsgsTitle: 'Export all chat history (JSON)', importMsgsTitle: 'Import chat history from a backup file',
+    attachTitle: 'Attach a file (images sent with message, ≤ 1.2 MB)',
+    fileTooBig: 'File too large (over 1.2 MB limit). Compress and retry.',
     importMsgOk: (n) => 'Imported ' + n + ' messages.',
     importMsgFail: 'Import failed: ',
     syncHintOff: 'Off: chat records are stored only in this browser (IndexedDB).',
@@ -163,6 +167,8 @@ const I18N = {
     exportMsgsTitle: 'Gesamten Chat-Verlauf exportieren (JSON)', importMsgsTitle: 'Chat-Verlauf aus Backup-Datei importieren',
     importMsgOk: (n) => n + ' Nachrichten importiert.',
     importMsgFail: 'Import fehlgeschlagen: ',
+    attachTitle: 'Datei anhängen (Bilder mit Nachricht, ≤ 1.2 MB)',
+    fileTooBig: 'Datei zu groß (Limit 1.2 MB überschritten). Komprimieren und erneut versuchen.',
     syncHintOff: 'Aus: Chat-Verlauf nur in diesem Browser (IndexedDB).',
     syncHintOn: (url) => 'Ein: Nachrichten über Relay ' + url + ' synchronisiert; lokale Kopie bleibt erhalten (DMs als Geheimtext).',
     syncLive: (url) => '✅ Mit Relay ' + url + ' verbunden, Live-Sync aktiv.',
@@ -232,6 +238,8 @@ function detectLang() {
 // 默认指向本机自建中继；部署后请在界面「中继地址」里改成你自己的中继 URL（需含 /gun 路径）。
 // 注意：GunDB 中继是 Node 服务，免费静态托管（GitHub Pages 等）跑不了，须放能跑 Node 的环境。
 const RELAY_URL = 'https://chat4hub-relay.onrender.com/gun';
+// 附件大小上限：原图约 1.2 MB（base64 后约 1.6 MB）。超过则拒绝发送，保护免费中继不被大文件拖垮。按需调大。
+const MAX_ATTACH_BYTES = 1.2 * 1024 * 1024;
 
 /* ---------- 工具 ---------- */
 const $ = (id) => document.getElementById(id);
@@ -286,6 +294,7 @@ const state = {
   dhPriv: null, dhPubB64: null,                       // ECDH  —— 端到端加密
   address: null,
   nickname: '',                                          // 使用者自设昵称（本地显示 + 随消息广播）
+  pendingFile: null,                                      // 待发送附件（{name,type,size,data(base64)}）
   syncOn: false,
   relayUrl: RELAY_URL,
   context: { type: 'channel', id: 'global', peer: null },
@@ -494,18 +503,23 @@ async function renderOne(m) {
   el.className = 'msg' + (mine ? ' mine' : '');
   const time = new Date(m.ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 
-  let text, verified, lockHint = '';
+  let text, file = null, verified, lockHint = '';
   if (m.kind === 'dm') {
     verified = await verifyMessage(m.pubRawB64, m.cipher, m.sig);
     try {
       const otherPub = otherPubForDecrypt(m);
-      text = otherPub ? await decryptText(await deriveAES(state.dhPriv, otherPub), m.iv, m.cipher)
-                      : t('lackKeyDecrypt');
+      const plain = otherPub ? await decryptText(await deriveAES(state.dhPriv, otherPub), m.iv, m.cipher)
+                            : t('lackKeyDecrypt');
+      // 新版本私聊把 {text,file} 打包成 JSON 再加密；旧版纯文本密文也能兼容
+      let obj; try { obj = JSON.parse(plain); } catch (e) { obj = { text: plain }; }
+      text = obj.text || '';
+      file = obj.file || null;
     } catch (e) { text = t('cannotDecrypt'); }
     lockHint = '<span class="lock">' + t('e2ee') + '</span>';
   } else {
     verified = await verifyMessage(m.pubRawB64, m.text, m.sig);
     text = m.text;
+    file = m.file || null;
   }
 
   const vtxt = verified ? t('verified') : t('unverified');
@@ -523,16 +537,54 @@ async function renderOne(m) {
       ${addBtn}
     </div>
     <div class="body"></div>`;
-  el.querySelector('.body').textContent = text; // textContent 防 XSS
+  const body = el.querySelector('.body');
+  body.textContent = text; // textContent 防 XSS
+  if (file) body.appendChild(buildAttachment(file)); // 附件用 DOM 构建，防 XSS
   const ab = el.querySelector('.add');
   if (ab) ab.addEventListener('click', () => addFriendRaw(ab.dataset.addr, ab.dataset.sign, ab.dataset.dh));
   return el;
 }
 
+// 用 DOM API 构建附件元素（文件名/数据均以属性或 textContent 设置，绝不经 innerHTML 注入）
+function buildAttachment(file) {
+  const wrap = document.createElement('div'); wrap.className = 'att-wrap';
+  if (file.type && file.type.indexOf('image/') === 0) {
+    const img = document.createElement('img');
+    img.className = 'att'; img.src = file.data; img.alt = file.name || 'image';
+    img.addEventListener('click', () => window.open(file.data, '_blank'));
+    wrap.appendChild(img);
+  } else {
+    const a = document.createElement('a');
+    a.className = 'att-file'; a.href = file.data; a.download = file.name || 'file';
+    a.textContent = (file.name || 'file') + '  (' + formatSize(file.size || 0) + ')';
+    wrap.appendChild(a);
+  }
+  return wrap;
+}
+function formatSize(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+  return (b / 1048576).toFixed(2) + ' MB';
+}
+// 待发附件预览（消息框下方的小芯片，可取消）
+function renderAttachPreview() {
+  const box = $('attachPreview'); if (!box) return;
+  const f = state.pendingFile;
+  if (!f) { box.hidden = true; box.innerHTML = ''; return; }
+  box.hidden = false; box.innerHTML = '';
+  const chip = document.createElement('span'); chip.className = 'att-chip';
+  chip.textContent = (f.type && f.type.indexOf('image/') === 0 ? '[图片] ' : '[文件] ') + f.name + ' (' + formatSize(f.size) + ')';
+  const x = document.createElement('span'); x.className = 'att-x'; x.textContent = '×'; x.title = '取消附件';
+  x.addEventListener('click', () => { state.pendingFile = null; renderAttachPreview(); });
+  box.appendChild(chip); box.appendChild(x);
+}
+function clearAttachPreview() { renderAttachPreview(); }
+
 async function sendMessage() {
   const input = $('msgInput');
   const text = input.value.trim();
-  if (!text) return;
+  const file = state.pendingFile;            // 待发送附件（可能为 null）
+  if (!text && !file) return;               // 既无文字也无附件则不发
 
   let msg;
   if (state.context.type === 'dm') {
@@ -542,7 +594,9 @@ async function sendMessage() {
       return;
     }
     const aes = await deriveAES(state.dhPriv, peer.dhPubRawB64); // 用我的 ECDH 私钥 + 对方 ECDH 公钥
-    const { iv, cipher } = await encryptText(aes, text);
+    // 私聊：把 {text, file} 打包成 JSON 再加密，保证附件也走端到端加密
+    const bundle = JSON.stringify({ text: text, file: file || null });
+    const { iv, cipher } = await encryptText(aes, bundle);
     const sig = await signMessage(cipher);                        // 对密文签名（用我的 ECDSA 私钥）
     msg = {
       id: crypto.randomUUID(), kind: 'dm', ctx: state.context.id, peer: peer.address,
@@ -556,11 +610,12 @@ async function sendMessage() {
       id: crypto.randomUUID(), kind: 'channel', ctx: state.context.id,
       address: state.address, pubRawB64: state.signPubB64, dhPub: state.dhPubB64,
       nick: state.nickname,
-      ts: Date.now(), text, sig,
+      ts: Date.now(), text, file: file || undefined, sig,
     };
   }
   await saveMessage(msg);
   input.value = '';
+  state.pendingFile = null; clearAttachPreview();   // 清空待发附件
   await renderMessages();
   if (state.syncOn && gun) gun.get('web3chat').get(msg.id).put(msg);
 }
@@ -690,6 +745,21 @@ function bindUI() {
   $('howToBtn').addEventListener('click', () => { window.open('howto.html', '_blank'); });
   $('sendBtn').addEventListener('click', sendMessage);
   $('msgInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
+
+  // 附件：选文件 → 读成 base64 → 暂存待发；超限拦截
+  $('attachBtn').addEventListener('click', () => $('fileInput').click());
+  $('fileInput').addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    if (f.size > MAX_ATTACH_BYTES) { alert(t('fileTooBig')); e.target.value = ''; return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      state.pendingFile = { name: f.name, type: f.type || 'application/octet-stream', size: f.size, data: reader.result };
+      renderAttachPreview();
+    };
+    reader.readAsDataURL(f);
+    e.target.value = '';
+  });
 
   $('syncToggle').checked = state.syncOn;
   $('syncToggle').addEventListener('change', (e) => { state.syncOn = e.target.checked; saveSync(); setMode(); });

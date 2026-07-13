@@ -99,12 +99,21 @@ html, body {
 .msg .meta .lock { color: var(--warn); }
 .msg .meta .add { color: var(--accent); cursor: pointer; border: 1px solid #1d5b52; border-radius: 6px; padding: 0 6px; }
 .msg .body { font-size: 14px; line-height: 1.5; word-break: break-word; white-space: pre-wrap; }
+/* 附件渲染 */
+.att-wrap { margin-top: 6px; }
+.att { display: block; max-width: 240px; max-height: 260px; border-radius: 10px; cursor: pointer; border: 1px solid #2a3a63; }
+.att-file { display: inline-block; margin-top: 4px; padding: 6px 10px; background: var(--panel-2); border: 1px solid #2a3a63; border-radius: 10px; color: var(--accent); text-decoration: none; font-size: 13px; }
+.att-file:hover { border-color: var(--accent); }
 
 .empty { margin: auto; color: var(--muted); text-align: center; font-size: 14px; }
 
 .composer { display: flex; gap: 10px; padding: 10px 12px; border-top: 1px solid #233156; }
 .composer input { flex: 1; background: var(--panel-2); border: 1px solid #2a3a63; border-radius: 12px; color: var(--text); padding: 12px 14px; font-size: 14px; }
 .composer input:focus { outline: none; border-color: var(--accent); }
+/* 待发附件预览芯片 */
+.attach-preview { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-top: 1px solid #233156; font-size: 13px; color: var(--muted); }
+.att-chip { background: var(--panel-2); border: 1px solid #2a3a63; border-radius: 999px; padding: 2px 10px; }
+.att-x { cursor: pointer; color: var(--danger); font-weight: bold; padding: 0 4px; }
 
 /* 同步面板（已移入侧边栏） */
 .sync-panel { display: flex; flex-direction: column; gap: 8px; }
