@@ -587,6 +587,13 @@ async function loadMeta() {
       try { state.channelKeys[nm] = { key: await importChannelKeyRaw(v.rawB64), version: v.version || 1 }; } catch (e) {}
     }
   }
+  // 路线 B：恢复本机持有的私有频道元数据（创建者/成员/审批人），避免纯本地模式或 Gun 未连时重载丢失
+  const cm = await idbGet('meta', 'channelMeta');
+  if (cm && cm.value && typeof cm.value === 'object') {
+    for (const [nm, v] of Object.entries(cm.value)) {
+      state.channelMeta[nm] = { kind: v.kind, creator: v.creator, keyVersion: v.keyVersion, members: v.members || {}, approvers: v.approvers || {}, membersDh: v.membersDh || {} };
+    }
+  }
 }
 async function saveChannels() { await idbPut('meta', { key: 'channels', value: state.channels }); }
 async function saveChannelKeys() {
@@ -595,6 +602,13 @@ async function saveChannelKeys() {
     try { obj[nm] = { rawB64: await exportChannelKeyRaw(v.key), version: v.version || 1 }; } catch (e) {}
   }
   await idbPut('meta', { key: 'channelKeys', value: obj });
+}
+async function saveChannelMeta() {
+  const obj = {};
+  for (const [nm, v] of Object.entries(state.channelMeta)) {
+    obj[nm] = { kind: v.kind, creator: v.creator, keyVersion: v.keyVersion, members: v.members || {}, approvers: v.approvers || {}, membersDh: v.membersDh || {} };
+  }
+  await idbPut('meta', { key: 'channelMeta', value: obj });
 }
 async function saveSync() { await idbPut('meta', { key: 'syncOn', value: state.syncOn }); }
 async function saveRelay() { await idbPut('meta', { key: 'relayUrl', value: state.relayUrl }); }
@@ -1012,6 +1026,7 @@ async function approveRequest(name, addr, dh) {
   meta.approvers = meta.approvers || {}; meta.approvers[addr] = true;
   meta.membersDh = meta.membersDh || {}; meta.membersDh[addr] = dh;
   gun.get('web3chat').get('chanmeta').get(name).put({ members: meta.members, approvers: meta.approvers, membersDh: meta.membersDh });
+  await saveChannelMeta();
   gun.get('web3chat').get('chanmeta').get(name).get('requests').get(addr).put(null);   // 清除该申请
   if (state.channelRequests[name]) delete state.channelRequests[name][addr];
   if (name === state.context.id) renderMemberPanel();
@@ -1030,6 +1045,7 @@ async function kickMember(name, addr) {
   const membersDh = Object.assign({}, meta.membersDh || {});
   delete members[addr]; delete approvers[addr]; delete membersDh[addr];
   gun.get('web3chat').get('chanmeta').get(name).put({ members, approvers, membersDh, keyVersion: newVersion });
+  await saveChannelMeta();
   // 把 K' 重发给剩余成员
   for (const a of Object.keys(members)) {
     if (a === state.address) continue;
@@ -1054,6 +1070,7 @@ function watchMeta() {
       kind: data.kind, creator: data.creator, keyVersion: data.keyVersion,
       members: data.members || {}, approvers: data.approvers || {}, membersDh: data.membersDh || {}
     };
+    saveChannelMeta();
     renderChannelList();
     if (name === state.context.id) renderMemberPanel();
     if (state.channels.includes(name)) watchChannel(name);
@@ -1321,6 +1338,7 @@ function bindUI() {
         watchChannel(v);
       }
       state.channelMeta[v] = m;
+      await saveChannelMeta();
     }
     state.channels.push(v); saveChannels(); renderChannelList(); switchToChannel(v);
     if ($('privateChk')) $('privateChk').checked = false;
