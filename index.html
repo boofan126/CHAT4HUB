@@ -66,8 +66,7 @@
 
         <section class="panel mykey">
           <div class="panel-head" data-i18n="myPubKey">我的公钥</div>
-          <code id="myPub" data-i18n-title="myPubHint" title="把这段发给对方，对方才能给你发加密私聊">—</code>
-          <button class="btn ghost sm" id="copyPubBtn" data-i18n="copy">复制</button>
+          <button class="btn ghost sm view-pub" id="viewPubBtn" data-i18n="viewPub">查看公钥</button>
           <div class="row nick-row">
             <span class="nick-label" data-i18n="nickLabel">昵称</span>
             <input type="text" id="nickInput" maxlength="20" data-i18n-ph="nickPh" placeholder="你的昵称（本机显示，并随消息发给对方）" spellcheck="false" />
@@ -131,6 +130,19 @@
       <div class="modal-card">
         <div class="modal-head"><span id="memberTitle"></span><button class="btn ghost sm" id="memberClose" title="关闭">✕</button></div>
         <div class="modal-body" id="memberBody"></div>
+      </div>
+    </div>
+
+    <!-- 公钥查看弹窗（点击「查看公钥」打开） -->
+    <div class="modal" id="pubModal" hidden>
+      <div class="modal-mask" id="pubMask"></div>
+      <div class="modal-card">
+        <div class="modal-head"><span id="pubTitle" data-i18n="myPubKey">我的公钥</span><button class="btn ghost sm" id="pubClose" title="关闭">✕</button></div>
+        <div class="modal-body">
+          <p class="hint" id="pubHint" data-i18n="pubHintBody">把下面这串公钥卡片发给好友，对方即可添加你并收发端到端加密私聊：</p>
+          <code id="pubContent" class="pub-code">—</code>
+          <div class="row"><button class="btn primary sm" id="pubCopyBtn" data-i18n="copy">复制</button></div>
+        </div>
       </div>
     </div>
   </div>

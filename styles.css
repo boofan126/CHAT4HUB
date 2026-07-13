@@ -87,6 +87,8 @@ html, body {
 .list li .del { color: var(--danger); cursor: pointer; padding: 0 4px; }
 
 .mykey code { display: block; font-size: 10px; color: var(--muted); word-break: break-all; background: var(--panel-2); padding: 6px; border-radius: 8px; margin-bottom: 6px; }
+.pub-code { display: block; font-size: 11px; color: var(--muted); word-break: break-all; background: var(--panel-2); padding: 8px; border-radius: 8px; max-height: 42vh; overflow: auto; white-space: pre-wrap; line-height: 1.5; margin: 0 0 8px; }
+.view-pub { align-self: flex-start; }
 
 /* 聊天区 */
 .ctx-header { padding: 10px 14px; border-bottom: 1px solid #233156; font-weight: 700; color: var(--accent-2); display: flex; align-items: center; justify-content: space-between; gap: 10px; }

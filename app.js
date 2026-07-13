@@ -33,6 +33,8 @@ const I18N = {
     addFriendTitle: '手动添加好友（需对方公钥）',
     myPubKey: '我的公钥',
     myPubHint: '把这段发给对方，对方才能给你发加密私聊',
+    viewPub: '查看公钥',
+    pubHintBody: '把下面这串公钥卡片发给好友，对方即可添加你并收发端到端加密私聊：',
     copy: '复制',
     ctxNone: '# 未选择',
     dmPrefix: '🔒 私聊 · ',
@@ -123,6 +125,8 @@ const I18N = {
     addFriendTitle: 'Add a friend manually (needs their public key)',
     myPubKey: 'My Public Key',
     myPubHint: 'Send this to others so they can send you encrypted DMs',
+    viewPub: 'View Public Key',
+    pubHintBody: 'Send the public key card below to friends so they can add you and exchange end-to-end encrypted DMs:',
     copy: 'Copy',
     ctxNone: '# none',
     dmPrefix: '🔒 DM · ',
@@ -213,6 +217,8 @@ const I18N = {
     addFriendTitle: 'Freund manuell hinzufügen (öffentlicher Schlüssel nötig)',
     myPubKey: 'Mein öffentlicher Schlüssel',
     myPubHint: 'Sende dies an andere, damit sie dir verschlüsselte DMs senden können',
+    viewPub: 'Öffentlichen Schlüssel anzeigen',
+    pubHintBody: 'Sende die Schlüsselkarte unten an Freunde, damit sie dich hinzufügen und Ende-zu-Ende-verschlüsselte DMs austauschen können:',
     copy: 'Kopieren',
     ctxNone: '# Keine Auswahl',
     dmPrefix: '🔒 DM · ',
@@ -904,7 +910,11 @@ function renderFriendList() {
     ul.appendChild(li);
   }
 }
-function renderMyPub() { $('myPub').textContent = state.dhPubB64; } // 展示加密公钥（好友加密用）
+// 公钥改为「点击查看」→ 弹窗展示，不再直接显示明文
+function renderMyPub() {
+  const el = $('pubContent');
+  if (el) el.textContent = state.address ? myPubCard() : '—';
+}
 
 /* ---------- 可选：GunDB 去中心化同步 ---------- */
 let gun = null;
@@ -1435,7 +1445,15 @@ function bindUI() {
     } catch (err) { alert(t('addFailed') + err.message); }
   });
 
-  $('copyPubBtn').addEventListener('click', () => {
+  // 「查看公钥」：点击弹窗展示完整公钥卡片，并支持复制
+  $('viewPubBtn').addEventListener('click', () => {
+    renderMyPub();
+    $('pubModal').hidden = false;
+  });
+  const closePub = () => { $('pubModal').hidden = true; };
+  $('pubClose').addEventListener('click', closePub);
+  $('pubMask').addEventListener('click', closePub);
+  $('pubCopyBtn').addEventListener('click', () => {
     navigator.clipboard.writeText(myPubCard()).then(() => alert(t('copied')));
   });
 
