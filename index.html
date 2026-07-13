@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Web3 本地聊天 · Channels / DM / Friends</title>
+  <title data-i18n="pageTitle">Web3Chat</title>
   <link rel="stylesheet" href="styles.css" />
   <!-- GunDB：可选的去中心化 P2P 同步层（本地自托管，避免外部 CDN 不稳定）。无网络时自动回退纯本地。 -->
   <script src="gun.js"></script>
@@ -57,7 +57,7 @@
       <h1 class="welcome-title" data-i18n="welcomeTitle">绝对安全的信息交流</h1>
       <p class="welcome-sub" data-i18n="welcomeSub">端到端加密 · 去中心化网络 · 你的密钥只在你手中</p>
       <button class="btn primary lg" id="enterBtn" data-i18n="enterApp">开始使用 →</button>
-      <p class="welcome-foot">Web3Chat · 隐私优先的本地加密聊天</p>
+      <p class="welcome-foot" data-i18n="welcomeFoot">Web3Chat · 隐私优先的本地加密聊天</p>
     </div>
   </div>
 
@@ -108,7 +108,7 @@
         <section class="panel" id="chanListPanel">
           <div class="panel-head">
             <span data-i18n="chanList">频道列表</span>
-            <span class="collapse-toggle" id="chanCollapse" title="折叠/展开">▾</span>
+            <span class="collapse-toggle" id="chanCollapse" data-i18n-title="collapseTip" title="折叠/展开">▾</span>
           </div>
           <ul class="list" id="channelList"></ul>
           <div class="list-more-box" id="chanMoreBox"></div>
@@ -118,7 +118,7 @@
           <div class="panel-head">
             <span data-i18n="friends">好友 Friends</span>
             <button class="btn ghost sm" id="addFriendBtn" data-i18n-title="addFriendTitle" title="手动添加好友（需对方公钥）">＋</button>
-            <span class="collapse-toggle" id="friendCollapse" title="折叠/展开">▾</span>
+            <span class="collapse-toggle" id="friendCollapse" data-i18n-title="collapseTip" title="折叠/展开">▾</span>
           </div>
           <ul class="list" id="friendList"></ul>
           <div class="list-more-box" id="friendMoreBox"></div>
@@ -184,7 +184,7 @@
     <div class="modal" id="memberModal" hidden>
       <div class="modal-mask" id="memberMask"></div>
       <div class="modal-card">
-        <div class="modal-head"><span id="memberTitle"></span><button class="btn ghost sm" id="memberClose" title="关闭">✕</button></div>
+        <div class="modal-head"><span id="memberTitle"></span><button class="btn ghost sm" id="memberClose" data-i18n-title="closeTip" title="关闭">✕</button></div>
         <div class="modal-body" id="memberBody"></div>
       </div>
     </div>

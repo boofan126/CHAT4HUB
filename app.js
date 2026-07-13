@@ -113,6 +113,16 @@ const I18N = {
     welcomeTitle: '绝对安全的信息交流',
     welcomeSub: '端到端加密 · 去中心化网络 · 你的密钥只在你手中',
     enterApp: '开始使用 →',
+    pageTitle: 'Web3Chat · 本地加密聊天',
+    welcomeFoot: 'Web3Chat · 隐私优先的本地加密聊天',
+    imgTag: '[图片] ',
+    fileTag: '[文件] ',
+    cancelAttach: '取消附件',
+    fmtInvalid: '格式不正确',
+    idFileInvalid: '身份文件格式不正确',
+    connecting: '连接中…',
+    collapseTip: '折叠 / 展开',
+    closeTip: '关闭',
   },
   en: {
     brandTitle: 'Web3 Local Chat',
@@ -212,6 +222,16 @@ const I18N = {
     welcomeTitle: 'Absolutely Secure Communication',
     welcomeSub: 'End-to-end encryption · Decentralized network · Your keys stay with you',
     enterApp: 'Get Started →',
+    pageTitle: 'Web3Chat · Encrypted Local Chat',
+    welcomeFoot: 'Web3Chat · Privacy-first encrypted chat',
+    imgTag: '[Image] ',
+    fileTag: '[File] ',
+    cancelAttach: 'Cancel attachment',
+    fmtInvalid: 'Invalid format',
+    idFileInvalid: 'Invalid identity file format',
+    connecting: 'Connecting…',
+    collapseTip: 'Collapse / Expand',
+    closeTip: 'Close',
   },
 };
 let LANG = 'zh';
@@ -415,7 +435,7 @@ async function importMessages(file) {
   try {
     const obj = JSON.parse(await file.text());
     const list = Array.isArray(obj) ? obj : (obj.messages || []);
-    if (!Array.isArray(list)) throw new Error('格式不正确');
+    if (!Array.isArray(list)) throw new Error('fmtInvalid');
     let n = 0;
     for (const m of list) {
       if (!m || !m.id || !m.sig) continue;
@@ -427,7 +447,7 @@ async function importMessages(file) {
     }
     renderChannelList(); await renderMessages();
     alert(t('importMsgOk', n));
-  } catch (err) { alert(t('importMsgFail') + err.message); }
+  } catch (err) { alert(t('importMsgFail') + t(err.message)); }
 }
 
 // 「公钥卡片」：把地址 + 签名公钥 + 加密公钥打包，方便好友一键添加
@@ -438,7 +458,7 @@ function myPubCard() {
 async function importIdentity(json) {
   const rec = JSON.parse(json);
   if (!rec || !rec.signPrivJwk || !rec.signPubB64 || !rec.dhPrivJwk || !rec.dhPubB64 || !rec.address)
-    throw new Error('身份文件格式不正确');
+    throw new Error('idFileInvalid');
   await idbPut('identity', { key: 'me', ...rec });
   await loadIdentity();
 }
@@ -688,8 +708,8 @@ function renderAttachPreview() {
   if (!f) { box.hidden = true; box.innerHTML = ''; return; }
   box.hidden = false; box.innerHTML = '';
   const chip = document.createElement('span'); chip.className = 'att-chip';
-  chip.textContent = (f.type && f.type.indexOf('image/') === 0 ? '[图片] ' : '[文件] ') + f.name + ' (' + formatSize(f.size) + ')';
-  const x = document.createElement('span'); x.className = 'att-x'; x.textContent = '×'; x.title = '取消附件';
+  chip.textContent = (f.type && f.type.indexOf('image/') === 0 ? t('imgTag') + ' ' : t('fileTag') + ' ') + f.name + ' (' + formatSize(f.size) + ')';
+  const x = document.createElement('span'); x.className = 'att-x'; x.textContent = '×'; x.title = t('cancelAttach');
   x.addEventListener('click', () => { state.pendingFile = null; renderAttachPreview(); });
   box.appendChild(chip); box.appendChild(x);
 }
@@ -925,7 +945,7 @@ function setModeText() {
 function setMode() {
   if (state.syncOn) {
     $('modeBadge').textContent = t('modeDecentral');
-    setConn('down', '连接中…');
+    setConn('down', t('connecting'));
     const ok = connectGun();
     if (ok) $('syncHint').textContent = t('syncHintOn');
   } else {
@@ -1433,7 +1453,7 @@ function bindUI() {
   $('importFile').addEventListener('change', async (e) => {
     const file = e.target.files[0]; if (!file) return;
     try { await importIdentity(await file.text()); renderMyPub(); renderCtxHeader(); await renderMessages(); alert(t('importOk')); }
-    catch (err) { alert(t('importFail') + err.message); }
+    catch (err) { alert(t('importFail') + t(err.message)); }
     e.target.value = '';
   });
   $('logoutBtn').addEventListener('click', async () => {
