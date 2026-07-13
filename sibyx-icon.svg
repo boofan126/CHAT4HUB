@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="SIBYX">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3B6BFF"/>
+      <stop offset="1" stop-color="#00D6C2"/>
+    </linearGradient>
+  </defs>
+  <!-- shield = security -->
+  <path d="M256 36 L438 112 V252 C438 372 356 454 256 486 C156 454 74 372 74 252 V112 Z" fill="url(#g)"/>
+  <!-- chat bubble = communication -->
+  <path d="M170 166 H342 a28 28 0 0 1 28 28 V262 a28 28 0 0 1 -28 28 H210 L182 326 V290 H170 a28 28 0 0 1 -28 -28 V194 a28 28 0 0 1 28 -28 Z" fill="#FFFFFF"/>
+  <!-- typing dots = live messaging -->
+  <circle cx="198" cy="228" r="10" fill="#3B6BFF"/>
+  <circle cx="236" cy="228" r="10" fill="#3B6BFF" opacity="0.6"/>
+  <circle cx="274" cy="228" r="10" fill="#3B6BFF" opacity="0.35"/>
+</svg>

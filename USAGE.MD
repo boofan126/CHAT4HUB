@@ -1,4 +1,4 @@
-# Web3 Local Chat · User Guide
+# SibyX · User Guide
 
 This guide is for **end users** (not deployers). You don't need to understand blockchain, install a wallet, or create an account — just open the page and chat.
 
@@ -22,7 +22,7 @@ The chat app is a **web application** deployed at a networked URL. Just open the
 - This identity **exists only in your browser's local storage (IndexedDB)** and is never uploaded to any server.
 - Refreshing or reopening keeps the same identity and same address.
 - You can set a **nickname** in the Identity panel; it is sent with your messages and shown to others.
-- **Want to keep the same identity on another device / browser?** In the Identity panel click "**Export Identity**" to download a `web3-identity.json` file (contains your keys — keep it safe); on the new device open the page and click "**Import Identity**" to select that file and restore the same address and friend relationships.
+- **Want to keep the same identity on another device / browser?** In the Identity panel click "**Export Identity**" to download a `sibyx-identity.json` file (contains your keys — keep it safe); on the new device open the page and click "**Import Identity**" to select that file and restore the same address and friend relationships.
 
 > 🔑 **What identity backup does**: it carries your "account (address) + two keys". After a device switch / loss, "**Import Identity**" on the new device **restores the same address and friend relationships**, and because the private keys are back, you can **keep sending/receiving messages and decrypt private channels & DMs**.
 >
@@ -124,7 +124,7 @@ A: Check that "Decentralized sync" is on, the relay address is correct and reach
 A: Usually the public keys don't match. Re-add the person via "＋ Friend" (Method A is most reliable), making sure both sides have each other's encryption public key.
 
 **Q: Can I use my identity on a new phone/computer?**
-A: Yes. Use "Export Identity" to back up `web3-identity.json`, then "Import Identity" on the new device to restore the same address and friend relationships.
+A: Yes. Use "Export Identity" to back up `sibyx-identity.json`, then "Import Identity" on the new device to restore the same address and friend relationships.
 
 **Q: Can others see my private channel?**
 A: No. People who aren't approved see only ciphertext — no plaintext, and they can't post either.

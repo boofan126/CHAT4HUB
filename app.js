@@ -1,5 +1,5 @@
 /* =====================================================================
- * Web3 本地聊天 · 频道 / 私聊 / 好友  + 私聊端到端加密
+ * SibyX · 频道 / 私聊 / 好友  + 私聊端到端加密
  * - 登录：方案 A —— 浏览器本地自动生成身份，无密码/无钱包/无 SIWE
  * - 存储：聊天记录仅存本浏览器 IndexedDB
  * - 密钥：两对独立密钥
@@ -16,7 +16,7 @@
 /* ---------- 国际化 i18n（中 / EN） ---------- */
 const I18N = {
   zh: {
-    brandTitle: 'Web3 本地聊天',
+    brandTitle: 'SibyX',
     howTo: '使用说明', howToTitle: '查看使用说明（新页面）',
     modeLocal: '本地模式',
     modeDecentral: '去中心化',
@@ -116,8 +116,8 @@ const I18N = {
     welcomeTitle: '绝对安全的信息交流',
     welcomeSub: '端到端加密 · 去中心化网络 · 你的密钥只在你手中',
     enterApp: '开始使用 →',
-    pageTitle: 'Web3Chat · 本地加密聊天',
-    welcomeFoot: 'Web3Chat · 隐私优先的本地加密聊天',
+    pageTitle: 'SibyX · 本地加密聊天',
+    welcomeFoot: 'SibyX · 隐私优先的本地加密聊天',
     imgTag: '[图片] ',
     fileTag: '[文件] ',
     cancelAttach: '取消附件',
@@ -128,7 +128,7 @@ const I18N = {
     closeTip: '关闭',
   },
   en: {
-    brandTitle: 'Web3 Local Chat',
+    brandTitle: 'SibyX',
     howTo: 'How to Use', howToTitle: 'Open the user guide (new page)',
     modeLocal: 'Local', 
     modeDecentral: 'Decentralized',
@@ -228,8 +228,8 @@ const I18N = {
     welcomeTitle: 'Absolutely Secure Communication',
     welcomeSub: 'End-to-end encryption · Decentralized network · Your keys stay with you',
     enterApp: 'Get Started →',
-    pageTitle: 'Web3Chat · Encrypted Local Chat',
-    welcomeFoot: 'Web3Chat · Privacy-first encrypted chat',
+    pageTitle: 'SibyX · Encrypted Local Chat',
+    welcomeFoot: 'SibyX · Privacy-first encrypted chat',
     imgTag: '[Image] ',
     fileTag: '[File] ',
     cancelAttach: 'Cancel attachment',
@@ -1510,7 +1510,7 @@ function bindUI() {
   $('exportBtn').addEventListener('click', async () => {
     if (!confirm(t('exportIdWarn'))) return;   // ⚠️ 含私钥，二次确认防误发
     const blob = new Blob([await exportIdentity()], { type: 'application/json' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'web3-identity.json'; a.click();
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'sibyx-identity.json'; a.click();
     URL.revokeObjectURL(a.href);
   });
   // 聊天记录备份：导出 / 导入

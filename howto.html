@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>使用说明 · Web3 本地聊天</title>
+  <title>使用说明 · SibyX</title>
   <link rel="stylesheet" href="styles.css" />
   <style>
     body.howto { background:#0b0e14; color:#d7dde6; }
@@ -49,7 +49,7 @@
         <li>这个身份<strong>只存在你这台浏览器的本地存储（IndexedDB）</strong>，不会上传到任何服务器。</li>
         <li>刷新页面、关掉重开，身份都在，还是同一个地址。</li>
         <li>你可以在「身份」面板设置<strong>昵称</strong>，昵称会随消息发给对方显示。</li>
-        <li><strong>换设备 / 换浏览器想保留同一身份？</strong> 在身份面板点「<strong>导出身份</strong>」下载一个 <span class="ht-code">web3-identity.json</span>（含你的密钥，请妥善保管）；在新设备打开网页后点「<strong>导入身份</strong>」选这个文件，就能恢复成同一个地址与好友关系。</li>
+        <li><strong>换设备 / 换浏览器想保留同一身份？</strong> 在身份面板点「<strong>导出身份</strong>」下载一个 <span class="ht-code">sibyx-identity.json</span>（含你的密钥，请妥善保管）；在新设备打开网页后点「<strong>导入身份</strong>」选这个文件，就能恢复成同一个地址与好友关系。</li>
       </ul>
       <div class="ht-note">🔑 <strong>身份备份的作用</strong>：它带走的是你的「账号（地址）+ 两把密钥」。换设备 / 遗失设备后，在新设备「<strong>导入身份</strong>」即可<strong>恢复同一个地址、好友关系</strong>，并且因为私钥回来了，你能<strong>继续收发消息、解密私人频道与私聊</strong>。<br><strong>但要留意</strong>：聊天记录本身只存在旧设备的浏览器本地（IndexedDB），<strong>身份备份不含聊天内容</strong>。所以——若旧设备还在（换机），请务必再用「<strong>导出记录</strong>」把历史一并带走，新设备「导入身份」+「导入记录」才能既恢复账号、又恢复全部对话（见第七节）；若设备已遗失且从未导出过记录，旧对话无法找回，但「导入身份」至少让你用回同一个账号、继续收发新消息。</div>
       <div class="ht-note">⚠️ 私钥以明文存在本浏览器。任何能打开你浏览器的人都能读到。敏感场景请用「导出身份」备份后清除，或在隐私窗口使用。</div>
@@ -123,7 +123,7 @@
       <h2>十、常见问题</h2>
       <p><strong>Q：消息发不出去 / 朋友看不到我？</strong><br>A：检查是否打开了「去中心化同步」、中继地址是否填对且可达；确认你们频道名完全一致。纯本地模式（同步关着）本来就是单人单机，别人看不到你。</p>
       <p><strong>Q：私聊显示「无法解密」？</strong><br>A：通常是公钥没对上。请重新用「＋好友」加对方（方式 A 最稳），确保双方都拿到了彼此的加密公钥。</p>
-      <p><strong>Q：换手机/电脑还能用原来的身份吗？</strong><br>A：能。用「导出身份」备份 <span class="ht-code">web3-identity.json</span>，在新设备「导入身份」即可恢复同一地址和好友关系。</p>
+      <p><strong>Q：换手机/电脑还能用原来的身份吗？</strong><br>A：能。用「导出身份」备份 <span class="ht-code">sibyx-identity.json</span>，在新设备「导入身份」即可恢复同一地址和好友关系。</p>
       <p><strong>Q：私人频道别人能看到吗？</strong><br>A：不能。未批准加入的人只看到密文，看不到明文，也发不了消息。</p>
       <p><strong>Q：记录会丢吗？</strong><br>A：只要不清浏览器缓存/本地存储、不换设备且没备份，记录就在。重要对话建议「导出记录」+「导出身份」一起备份。</p>
       <p><strong>Q：这算真正的「去中心化」吗？</strong><br>A：纯本地模式最贴合「记录只在本地的」；开启 GunDB 同步后，消息经过 P2P 中继在多节点间转发，才算真正去中心化互通。两种模式都在你的掌控之中。</p>
@@ -144,7 +144,7 @@
         <li>This identity <strong>exists only in your browser's local storage (IndexedDB)</strong> and is never uploaded to any server.</li>
         <li>Refreshing or reopening keeps the same identity and same address.</li>
         <li>You can set a <strong>nickname</strong> in the Identity panel; it is sent with your messages and shown to others.</li>
-        <li><strong>Want to keep the same identity on another device / browser?</strong> In the Identity panel click "<strong>Export Identity</strong>" to download a <span class="ht-code">web3-identity.json</span> file (contains your keys — keep it safe); on the new device open the page and click "<strong>Import Identity</strong>" to select that file and restore the same address and friend relationships.</li>
+        <li><strong>Want to keep the same identity on another device / browser?</strong> In the Identity panel click "<strong>Export Identity</strong>" to download a <span class="ht-code">sibyx-identity.json</span> file (contains your keys — keep it safe); on the new device open the page and click "<strong>Import Identity</strong>" to select that file and restore the same address and friend relationships.</li>
       </ul>
       <div class="ht-note">🔑 <strong>What identity backup does</strong>: it carries your "account (address) + two keys". After a device switch / loss, "<strong>Import Identity</strong>" on the new device <strong>restores the same address and friend relationships</strong>, and because the private keys are back, you can <strong>keep sending/receiving messages and decrypt private channels & DMs</strong>.<br><strong>But note</strong>: chat history itself lives only in the old device's browser (IndexedDB) — <strong>the identity backup contains no chat content</strong>. So — if the old device still works (a switch), also use "<strong>Export</strong>" (history) to carry the history along; on the new device do "Import Identity" + "Import" (history) to restore both your account and all conversations (see Section 7). If the device is already lost and you never exported history, the old conversations can't be recovered, but "Import Identity" at least lets you use the same account again and keep exchanging new messages.</div>
       <div class="ht-note">⚠️ Private keys are stored in plaintext in this browser. Anyone who can open your browser can read them. For sensitive scenarios, use "Export Identity" to back up, then clear, or use a private/incognito window.</div>
@@ -218,7 +218,7 @@
       <h2>10. FAQ</h2>
       <p><strong>Q: Messages won't send / friend can't see me?</strong><br>A: Check that "Decentralized sync" is on, the relay address is correct and reachable; confirm you're using the exact same channel name. Pure-local mode (sync off) is single-user by design — nobody can see you.</p>
       <p><strong>Q: DM shows "cannot decrypt"?</strong><br>A: Usually the public keys don't match. Re-add the person via "＋ Friend" (Method A is most reliable), making sure both sides have each other's encryption public key.</p>
-      <p><strong>Q: Can I use my identity on a new phone/computer?</strong><br>A: Yes. Use "Export Identity" to back up <span class="ht-code">web3-identity.json</span>, then "Import Identity" on the new device to restore the same address and friend relationships.</p>
+      <p><strong>Q: Can I use my identity on a new phone/computer?</strong><br>A: Yes. Use "Export Identity" to back up <span class="ht-code">sibyx-identity.json</span>, then "Import Identity" on the new device to restore the same address and friend relationships.</p>
       <p><strong>Q: Can others see my private channel?</strong><br>A: No. People who aren't approved see only ciphertext — no plaintext, and they can't post either.</p>
       <p><strong>Q: Will I lose my history?</strong><br>A: As long as you don't clear browser cache/local storage, don't switch devices without a backup, the history stays. For important conversations, back up via "Export" (history) + "Export Identity".</p>
       <p><strong>Q: Is this truly "decentralized"?</strong><br>A: Pure-local mode best fits "records stay only local". After enabling GunDB sync, messages are relayed across nodes via P2P — that's the real decentralized part. Both modes stay under your control.</p>
@@ -247,7 +247,7 @@
       const t = HT[htLang].title;
       const titleEl = document.querySelector('[data-ht-title]');
       if (titleEl) titleEl.textContent = t;
-      document.title = t + ' · Web3 本地聊天';
+      document.title = t + ' · SibyX';
       document.querySelectorAll('.ht-lang-switch .lang-btn').forEach(b => b.classList.toggle('active', b.dataset.htLang === htLang));
     }
     document.querySelectorAll('.ht-lang-switch .lang-btn').forEach(b => {
