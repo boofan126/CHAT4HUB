@@ -117,11 +117,13 @@ html, body {
 
 /* 表情 / 表情包选择器（浮在输入框上方） */
 .emoji-panel {
+  display: none;
   position: absolute; bottom: 100%; left: 0; right: 0; margin-bottom: 8px;
   background: var(--panel); border: 1px solid #2a3a63; border-radius: 14px;
   box-shadow: 0 -8px 30px rgba(0,0,0,.45); z-index: 30; padding: 8px;
-  max-height: 280px; display: flex; flex-direction: column;
+  max-height: 280px; flex-direction: column;
 }
+.emoji-panel.open { display: flex; }
 .emoji-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
 .emoji-tab { flex: 1; background: var(--panel-2); border: 1px solid #2a3a63; color: var(--muted); border-radius: 8px; padding: 5px 0; font-size: 13px; cursor: pointer; }
 .emoji-tab.active { background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: #06121f; font-weight: 700; border-color: transparent; }

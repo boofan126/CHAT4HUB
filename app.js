@@ -778,9 +778,17 @@ function setMode() {
 function blobToDataURL(blob) {
   return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(blob); });
 }
-function openEmojiPanel() { const p = $('emojiPanel'); if (!p) return; p.hidden = false; renderEmojiGrid(); }
-function closeEmojiPanel() { const p = $('emojiPanel'); if (p) p.hidden = true; }
-function toggleEmojiPanel() { const p = $('emojiPanel'); if (!p) return; if (p.hidden) openEmojiPanel(); else closeEmojiPanel(); }
+function openEmojiPanel() {
+  const p = $('emojiPanel'); if (!p) return;
+  p.classList.add('open');
+  // 重置到「表情」标签并刷新两个网格的显隐（用 class/内联样式，避免 hidden 属性被 display:flex/grid 覆盖的坑）
+  document.querySelectorAll('#emojiPanel .emoji-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'emoji'));
+  $('emojiGrid').style.display = 'grid';
+  $('stickerGrid').style.display = 'none';
+  renderEmojiGrid();
+}
+function closeEmojiPanel() { const p = $('emojiPanel'); if (p) p.classList.remove('open'); }
+function toggleEmojiPanel() { const p = $('emojiPanel'); if (!p) return; if (p.classList.contains('open')) closeEmojiPanel(); else openEmojiPanel(); }
 
 function renderEmojiGrid() {
   const g = $('emojiGrid'); if (!g || g.childElementCount) return;   // 只构建一次
@@ -851,14 +859,14 @@ function bindUI() {
       document.querySelectorAll('#emojiPanel .emoji-tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       const isEmoji = tab.dataset.tab === 'emoji';
-      $('emojiGrid').hidden = !isEmoji;
-      $('stickerGrid').hidden = isEmoji;
+      $('emojiGrid').style.display = isEmoji ? 'grid' : 'none';
+      $('stickerGrid').style.display = isEmoji ? 'none' : 'grid';
       if (!isEmoji) renderStickerGrid(); else renderEmojiGrid();
     });
   });
   // 点击面板外部 / 按 Esc 关闭
   document.addEventListener('click', (e) => {
-    const p = $('emojiPanel'); if (!p || p.hidden) return;
+    const p = $('emojiPanel'); if (!p || !p.classList.contains('open')) return;
     if (!p.contains(e.target) && e.target.id !== 'emojiBtn') closeEmojiPanel();
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeEmojiPanel(); });
