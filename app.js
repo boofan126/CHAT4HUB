@@ -42,6 +42,8 @@ const I18N = {
     relayPh: '中继地址，如 http://localhost:8765/gun',
     syncHintOff: '关闭：聊天记录仅存于本浏览器（IndexedDB）。',
     syncHintOn: (url) => '开启：消息经中继 ' + url + ' 同步，本机仍留存全部记录（私聊为密文）。',
+    syncLive: (url) => '✅ 已连接中继 ' + url + '，联机同步中。',
+    syncDown: (url) => '⚠️ 与中继连接中断，正在自动重连… ' + url,
     noGun: '未加载 GunDB（可能离线），已回退纯本地模式。',
     emptyDM: '端到端加密私聊已开启，内容仅你与对方可读。',
     emptyChannel: '频道为空，发送第一条（公开签名消息）。',
@@ -91,6 +93,8 @@ const I18N = {
     relayPh: 'Relay URL, e.g. http://localhost:8765/gun',
     syncHintOff: 'Off: chat records are stored only in this browser (IndexedDB).',
     syncHintOn: (url) => 'On: messages sync via relay ' + url + '; all records still kept locally (DMs stay ciphertext).',
+    syncLive: (url) => '✅ Connected to relay ' + url + ', syncing live.',
+    syncDown: (url) => '⚠️ Relay connection lost, auto-reconnecting… ' + url,
     noGun: 'GunDB not loaded (maybe offline), fell back to local-only mode.',
     emptyDM: 'End-to-end encrypted DM enabled — only you and your peer can read it.',
     emptyChannel: 'Channel is empty. Send the first (public, signed) message.',
@@ -140,6 +144,8 @@ const I18N = {
     relayPh: 'Relay-URL, z. B. http://localhost:8765/gun',
     syncHintOff: 'Aus: Chat-Verlauf nur in diesem Browser (IndexedDB).',
     syncHintOn: (url) => 'Ein: Nachrichten über Relay ' + url + ' synchronisiert; lokale Kopie bleibt erhalten (DMs als Geheimtext).',
+    syncLive: (url) => '✅ Mit Relay ' + url + ' verbunden, Live-Sync aktiv.',
+    syncDown: (url) => '⚠️ Verbindung zum Relay unterbrochen, verbinde neu… ' + url,
     noGun: 'GunDB nicht geladen (evtl. offline), auf lokalen Modus zurückgefallen.',
     emptyDM: 'Ende-zu-Ende-verschlüsselte DM aktiv — nur du und dein Gegenüber können sie lesen.',
     emptyChannel: 'Kanal ist leer. Sende die erste (öffentliche, signierte) Nachricht.',
@@ -569,6 +575,11 @@ function connectGun() {
   if (typeof Gun === 'undefined') { $('syncHint').textContent = t('noGun'); return false; }
   const url = (state.relayUrl || RELAY_URL).trim();
   gun = Gun({ peers: [url], localStorage: false, radisk: false });
+  // 真实连接状态指示：连上中继 → ✅，断开 → ⚠️
+  try {
+    gun.on('hi', () => { if (state.syncOn) $('syncHint').textContent = t('syncLive', url); });
+    gun.on('bye', () => { if (state.syncOn) $('syncHint').textContent = t('syncDown', url); });
+  } catch (e) { /* 某些 Gun 版本不支持 mesh 事件，忽略 */ }
   gun.get('web3chat').map().on((data) => {
     if (!data || !data.id || !data.sig) return;
     if (data.ctx !== state.context.id) return; // 仅摄取当前上下文
