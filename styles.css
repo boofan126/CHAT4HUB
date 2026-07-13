@@ -90,6 +90,10 @@ html, body {
 /* 聊天区 */
 .ctx-header { padding: 10px 14px; border-bottom: 1px solid #233156; font-weight: 700; color: var(--accent-2); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 #ctxTitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 新成员申请提示角标（路线 B）：显式 [hidden]{display:none} 覆盖，避免被 flex 容器顶掉 */
+.req-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: #fff; background: #e5484d; border-radius: 10px; padding: 1px 8px; white-space: nowrap; }
+.req-badge[hidden] { display: none; }
+.list-head { font-size: 12px; color: var(--muted); margin: 6px 0 2px; font-weight: 600; }
 /* 私有频道勾选 */
 .chk { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin-bottom: 8px; cursor: pointer; }
 .chk input { width: auto; }

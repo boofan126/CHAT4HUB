@@ -101,6 +101,8 @@ const I18N = {
     needApproveToPost: '需被批准加入后才能发言',
     metaLoadFail: '读取频道信息失败',
     openChannelHint: '开放频道：任何知道名称的人都能加入并查看消息。',
+    newReq: (n) => (n > 1 ? n + ' 项新成员申请' : '1 项新成员申请'),
+    memberList: (n) => '成员列表（' + n + '）',
   },
   en: {
     brandTitle: 'Web3 Local Chat',
@@ -188,6 +190,8 @@ const I18N = {
     needApproveToPost: 'Need approval to post',
     metaLoadFail: 'Failed to load channel info',
     openChannelHint: 'Open channel: anyone who knows the name can join and read messages.',
+    newReq: (n) => (n > 1 ? n + ' new join requests' : '1 new join request'),
+    memberList: (n) => 'Member list (' + n + ')',
   },
   de: {
     brandTitle: 'Web3 Lokaler Chat',
@@ -271,6 +275,8 @@ const I18N = {
     needApproveToPost: 'Zum Schreiben muss freigegeben sein',
     metaLoadFail: 'Kanalinfos konnten nicht geladen werden',
     openChannelHint: 'Offener Kanal: jede Person, die den Namen kennt, kann beitreten und Nachrichten lesen.',
+    newReq: (n) => (n > 1 ? n + ' neue Beitrittsanfragen' : '1 neue Beitrittsanfrage'),
+    memberList: (n) => 'Mitgliederliste (' + n + ')',
     relayEdit: 'Relay-Adresse ändern',
     save: 'Speichern',
     cancel: 'Abbrechen',
@@ -847,6 +853,7 @@ function renderCtxHeader() {
     if (title) title.textContent = (channelIsPrivate(state.context.id) ? '🔒 ' : '') + t('channelPrefix') + state.context.id;
     if (mb) mb.hidden = false;
   }
+  updateMemberBadge();
 }
 
 /* ---------- 侧边栏渲染 ---------- */
@@ -986,7 +993,7 @@ function watchChannel(name) {
     if (!state.channelRequests[name]) state.channelRequests[name] = {};
     if (data && data.encFrom) state.channelRequests[name][addr] = data;
     else if (state.channelRequests[name]) delete state.channelRequests[name][addr];
-    if (name === state.context.id) renderMemberPanel();
+    if (name === state.context.id) { renderMemberPanel(); updateMemberBadge(); }
   });
 }
 // 收到审批人发来的 K（ECDH 共享密钥解密）
@@ -1002,7 +1009,7 @@ async function receiveChannelKey(name, data) {
     state.channelKeys[name] = { key, version: incomingVer };
     await saveChannelKeys();
     renderMessages(); renderChannelList();
-    if (name === state.context.id) renderMemberPanel();
+    if (name === state.context.id) { renderMemberPanel(); updateMemberBadge(); }
   } catch (e) { /* 解密失败（可能并非发给我），忽略 */ }
 }
 // 发送入群申请（含我的 ECDH 公钥，供审批人回发 K）
@@ -1029,7 +1036,7 @@ async function approveRequest(name, addr, dh) {
   await saveChannelMeta();
   gun.get('web3chat').get('chanmeta').get(name).get('requests').get(addr).put(null);   // 清除该申请
   if (state.channelRequests[name]) delete state.channelRequests[name][addr];
-  if (name === state.context.id) renderMemberPanel();
+  if (name === state.context.id) { renderMemberPanel(); updateMemberBadge(); }
 }
 // 踢人（仅创建者）：换密钥 K' → 重发给剩员 → 被踢者失权
 async function kickMember(name, addr) {
@@ -1077,6 +1084,17 @@ function watchMeta() {
   });
 }
 // 成员面板（模态框内容）
+function updateMemberBadge() {
+  const badge = $('memberBadge'); if (!badge) return;
+  const name = state.context.id;
+  let cnt = 0;
+  if (state.context.type === 'channel' && channelIsPrivate(name) && haveChannelKey(name) && state.channelRequests[name]) {
+    cnt = Object.entries(state.channelRequests[name]).filter(([a, d]) => d && d.encFrom && a !== state.address).length;
+  }
+  if (cnt > 0) { badge.textContent = '● ' + t('newReq', cnt); badge.hidden = false; badge.title = t('newReq', cnt); }
+  else badge.hidden = true;
+}
+
 function renderMemberPanel() {
   const modal = $('memberModal'); if (!modal || modal.hidden) return;
   const body = $('memberBody'); if (!body) return;
@@ -1096,6 +1114,7 @@ function renderMemberPanel() {
   }
   const meta = state.channelMeta[name];
   if (meta && meta.members) {
+    const head = document.createElement('div'); head.className = 'list-head'; head.textContent = t('memberList', Object.keys(meta.members).length); body.appendChild(head);
     const ul = document.createElement('ul'); ul.className = 'list';
     const order = Object.keys(meta.members);
     const main = (meta.creator && meta.members[meta.creator]) ? meta.creator : (order[0] || '');
