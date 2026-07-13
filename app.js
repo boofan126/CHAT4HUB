@@ -24,6 +24,7 @@ const I18N = {
     identityHead: '身份 Identity',
     addrTitle: '你的本地身份地址',
     export: '导出身份', exportTitle: '导出完整身份（含私钥+地址，慎传）',
+    exportIdWarn: '⚠️ 警告：身份文件包含你的私钥（签名私钥 + 加密私钥）和地址。\n任何人拿到都能冒充你、并解密你所有端到端私聊历史。\n仅用于本人设备迁移/备份，且绝不发给他人。\n\n确定要导出身份文件吗？',
     import: '导入身份', importTitle: '导入身份文件（恢复同一地址与密钥）',
     logout: '登出', logoutTitle: '清空本地身份与所有记录',
     channels: '频道 Channels',
@@ -119,6 +120,7 @@ const I18N = {
     identityHead: 'Identity',
     addrTitle: 'Your local identity address',
     export: 'Export Identity', exportTitle: 'Export full identity (incl. private keys + address, keep safe)',
+    exportIdWarn: '⚠️ WARNING: the identity file contains your PRIVATE keys (signing + encryption) and address.\nAnyone who gets it can impersonate you and decrypt all your E2E DM history.\nUse ONLY for your own device migration/backup, never share it.\n\nProceed with identity export?',
     import: 'Import Identity', importTitle: 'Import an identity file (restores same address & keys)',
     logout: 'Logout', logoutTitle: 'Clear local identity and all records',
     channels: 'Channels',
@@ -214,6 +216,7 @@ const I18N = {
     identityHead: 'Identität',
     addrTitle: 'Deine lokale Identitätsadresse',
     export: 'Identität exportieren', exportTitle: 'Vollständige Identität exportieren (inkl. privater Schlüssel + Adresse, sicher aufbewahren)',
+    exportIdWarn: '⚠️ WARNUNG: Die Identitätsdatei enthält deine PRIVATEN Schlüssel (Signatur + Verschlüsselung) und Adresse.\nWer sie hat, kann dich imitieren und deine gesamte E2E-DM-Historie entschlüsseln.\nNUR für eigene Geräte-Migration/Sicherung verwenden, nie teilen.\n\nMit Identitätsexport fortfahren?',
     import: 'Identität importieren', importTitle: 'Identitätsdatei importieren (gleiche Adresse & Schlüssel wiederherstellen)',
     logout: 'Abmelden', logoutTitle: 'Lokale Identität und alle Datensätze löschen',
     channels: 'Kanäle / Channels',
@@ -1508,6 +1511,7 @@ function bindUI() {
   });
 
   $('exportBtn').addEventListener('click', async () => {
+    if (!confirm(t('exportIdWarn'))) return;   // ⚠️ 含私钥，二次确认防误发
     const blob = new Blob([await exportIdentity()], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'web3-identity.json'; a.click();
     URL.revokeObjectURL(a.href);
