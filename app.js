@@ -78,6 +78,7 @@ const I18N = {
     emojiTabEmoji: '表情',
     emojiTabSticker: '表情包',
     stickerFail: '表情包加载失败（可能离线），已退化为文字表情。',
+    channelDup: (n) => '频道「' + n + '」在网络中已存在，已为你加入（不能重复创建）。',
   },
   en: {
     brandTitle: 'Web3 Local Chat',
@@ -142,6 +143,7 @@ const I18N = {
     emojiTabEmoji: 'Emoji',
     emojiTabSticker: 'Stickers',
     stickerFail: 'Sticker load failed (maybe offline), fell back to text emoji.',
+    channelDup: (n) => 'Channel "' + n + '" already exists on the network; joined it for you (cannot create a duplicate).',
   },
   de: {
     brandTitle: 'Web3 Lokaler Chat',
@@ -206,6 +208,7 @@ const I18N = {
     emojiTabEmoji: 'Emoji',
     emojiTabSticker: 'Sticker',
     stickerFail: 'Sticker laden fehlgeschlagen (evtl. offline), auf Text-Emoji zurückgefallen.',
+    channelDup: (n) => 'Kanal "' + n + '" existiert im Netz bereits; wurde für dich beigetreten (kein Duplikat erstellen).',
   },
 };
 let LANG = 'zh';
@@ -925,10 +928,39 @@ function bindUI() {
     if (state.syncOn) { gun = null; setMode(); }
   });
 
-  $('joinChannelBtn').addEventListener('click', () => {
+  // 查 Gun 中继上是否已有同名频道（别人发过该 ctx 的公开消息）。用于新建频道查重，避免重名。带 2.5s 超时兜底（中继冷启动/慢则默认允许新建，不卡用户）。
+  async function channelExistsOnNetwork(name) {
+    return new Promise((resolve) => {
+      if (!gun) return resolve(false);
+      let done = false;
+      const finish = (val) => { if (done) return; done = true; clearTimeout(timer); resolve(val); };
+      const timer = setTimeout(() => finish(false), 2500);
+      gun.get('web3chat').map().once((data) => {
+        if (data && data.ctx === name && data.address && data.address !== state.address) finish(true);
+      });
+    });
+  }
+
+  $('joinChannelBtn').addEventListener('click', async () => {
     const v = $('newChannel').value.trim(); if (!v) return;
-    if (!state.channels.includes(v)) { state.channels.push(v); saveChannels(); renderChannelList(); }
-    $('newChannel').value = ''; switchToChannel(v);
+    $('newChannel').value = '';
+    // 1) 本机查重：已存在 → 直接加入，不重复创建
+    if (state.channels.includes(v)) { switchToChannel(v); return; }
+    // 2) 全网查重（仅开启同步时）：中继上已有同名 → 视为重复频道，只能加入
+    if (state.syncOn && gun) {
+      const btn = $('joinChannelBtn'); const oldTxt = btn.textContent;
+      btn.disabled = true; btn.textContent = '…';
+      let exists = false; try { exists = await channelExistsOnNetwork(v); } catch (e) { exists = false; }
+      btn.disabled = false; btn.textContent = oldTxt;
+      if (exists) {
+        if (!state.channels.includes(v)) { state.channels.push(v); saveChannels(); renderChannelList(); }
+        switchToChannel(v);
+        alert(t('channelDup', v));
+        return;
+      }
+    }
+    // 3) 全网无同名 → 真正新建
+    state.channels.push(v); saveChannels(); renderChannelList(); switchToChannel(v);
   });
 
   // 手动添加好友：粘贴对方的「公钥卡片」(JSON)
