@@ -31,7 +31,7 @@ html, body {
 /* 移动端导航：汉堡按钮 + 遮罩层（默认桌面端隐藏） */
 .nav-toggle, .overlay { display: none; }
 
-/* 顶部栏 */
+/* 顶部栏（精简：品牌 + 汉堡） */
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
   background: linear-gradient(90deg, var(--panel), var(--panel-2));
@@ -46,11 +46,12 @@ html, body {
 .conn-dot.off { background: #555; }
 .conn-dot.down { background: #f0a020; box-shadow: 0 0 6px #f0a020; }
 .conn-dot.live { background: #2ecc71; box-shadow: 0 0 6px #2ecc71; }
-.identity { display: flex; align-items: center; gap: 8px; }
-.lang-switch { display: flex; gap: 0; border: 1px solid #2a3a63; border-radius: 8px; overflow: hidden; }
-.lang-switch .lang-btn { border: none; border-radius: 0; padding: 4px 9px; }
-.lang-switch .lang-btn.active { background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: #06121f; font-weight: 700; }
-.addr { font-family: monospace; font-size: 13px; color: var(--accent-2); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 侧栏身份面板（从顶栏移入） */
+.identity-panel { display: flex; flex-direction: column; gap: 8px; }
+.id-addr-row { display: flex; align-items: center; }
+.id-addr-row .addr { font-family: monospace; font-size: 12px; color: var(--accent-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
+.identity-panel .lang-switch { align-self: flex-start; }
 
 /* 按钮 */
 .btn { border: none; border-radius: 10px; padding: 6px 12px; font-size: 13px; cursor: pointer; color: var(--text); background: var(--panel-2); transition: .15s; }
@@ -167,16 +168,16 @@ html, body {
 .messages::-webkit-scrollbar-thumb, .sidebar::-webkit-scrollbar-thumb, .list::-webkit-scrollbar-thumb { background: #2a3a63; border-radius: 8px; }
 
 /* =====================================================================
- * 响应式：≤768px 视为手机端 —— 侧边栏改为可滑出抽屉
+ * 响应式：≤768px 视为手机端 —— 侧边栏改为可滑出抽屉 + 聊天区优化
  * ===================================================================== */
 @media (max-width: 768px) {
   .app { padding: 8px; gap: 8px; max-width: 100%; }
 
-  /* 顶部栏允许换行，避免按钮被挤出屏幕 */
-  .topbar { flex-wrap: wrap; gap: 8px; }
-  .identity { flex-wrap: wrap; gap: 6px; }
-  .addr { max-width: 110px; font-size: 12px; }
-  .btn { padding: 5px 10px; font-size: 12px; }
+  /* 顶栏紧凑（仅品牌，不再需要换行） */
+  .topbar { padding: 8px 12px; }
+  .title { font-size: 15px; }
+  .badge { display: none; }          /* 移动端省空间：模式徽标隐藏 */
+  .conn-dot { width: 10px; height: 10px; }
 
   /* 汉堡按钮（桌面端隐藏） */
   .nav-toggle {
@@ -186,7 +187,7 @@ html, body {
     background: var(--panel-2); color: var(--text); font-size: 18px; cursor: pointer;
   }
 
-  /* 侧边栏 → 左侧抽屉 */
+  /* 侧边栏 → 左侧抽屉（全高可滚动） */
   .body { position: relative; }
   .sidebar {
     position: fixed; top: 0; left: 0; bottom: 0; z-index: 50;
@@ -195,6 +196,8 @@ html, body {
     border-right: 1px solid #233156; border-radius: 0;
     transform: translateX(-100%); transition: transform .25s ease;
     box-shadow: 4px 0 24px rgba(0,0,0,.5);
+    overflow-y: auto;   /* 侧栏内容长时可滚动 */
+    -webkit-overflow-scrolling: touch;
   }
   .app.nav-open .sidebar { transform: translateX(0); }
 
@@ -206,26 +209,58 @@ html, body {
   }
   .app.nav-open .overlay { opacity: 1; pointer-events: auto; }
 
-  /* 聊天区全宽 */
-  .main { border-radius: 12px; }
+  /* 聊天区全宽 + 触控优化 */
+  .main { border-radius: 12px; min-height: 0; }
+  .ctx-header { padding: 10px 12px; min-height: 44px; }   /* 触控最小高度 */
+  #ctxTitle { font-size: 14px; }
+  .memberBtn, #memberBtn { min-width: 38px; min-height: 38px; font-size: 16px; }
 
-  /* 同步面板（侧栏内）纵向堆叠、行占满 */
+  /* 消息气泡更宽、间距适中 */
+  .messages { gap: 8px; padding: 10px; -webkit-overflow-scrolling: touch; }
+  .msg { max-width: 90%; padding: 9px 11px; border-radius: 14px; }
+  .msg .meta { font-size: 11px; gap: 6px; }
+  .msg .body { font-size: 14px; line-height: 1.55; }
+
+  /* 输入区：大触控目标 */
+  .composer { gap: 8px; padding: 10px; border-top: 1px solid #233156; align-items: center; }
+  .composer input {
+    padding: 12px 14px; font-size: 16px;   /* iOS 防缩放 */
+    border-radius: 14px; min-height: 44px;   /* 触控最小高度 */
+  }
+  .composer .btn { min-width: 40px; min-height: 40px; font-size: 14px; }
+
+  /* 附件预览芯片 */
+  .attach-preview { padding: 5px 10px; font-size: 12px; }
+
+  /* 表情面板：移动端更宽更高 */
+  .emoji-panel { max-height: 320px; border-radius: 16px; margin-bottom: 6px; }
+  .emoji-cell { min-height: 38px; border-radius: 10px; font-size: 22px; }
+  .emoji-cell img { width: 28px; height: 28px; }
+
+  /* 侧栏内面板纵向占满 */
   .sync-panel .row { width: 100%; }
   .sync-panel .row input { width: 100%; }
+  .identity-panel .row { flex-wrap: wrap; }
 
-  /* 消息气泡更宽，列表更高 */
-  .msg { max-width: 90%; }
+  /* 列表更高 */
   .list { max-height: 42vh; }
-  .composer input { padding: 10px 12px; }
 }
 
 /* 超小屏（≤420px）进一步收紧 */
 @media (max-width: 420px) {
-  .identity .addr { display: none; }       /* 地址太占地方，隐藏，悬停标题仍可看 */
-  .lang-switch .lang-btn { padding: 3px 7px; font-size: 11px; }  /* 三语按钮在超小屏更紧凑 */
-  .title { font-size: 14px; }
-  .composer { gap: 6px; }
-  .composer input { padding: 9px 10px; font-size: 13px; }
-  .msg .meta { font-size: 11px; gap: 6px; }
+  .app { padding: 6px; gap: 6px; }
+  .topbar { padding: 7px 10px; border-radius: 12px; }
+  .logo { font-size: 18px; }
+  .title { font-size: 13px; }
+
+  .ctx-header { padding: 8px 10px; }
+  .messages { gap: 6px; padding: 8px; }
+  .msg { max-width: 92%; padding: 8px 10px; }
   .msg .body { font-size: 13px; }
+
+  .composer { gap: 6px; padding: 8px; }
+  .composer input { padding: 10px 12px; font-size: 16px; border-radius: 12px; }
+  .composer .btn { min-width: 36px; min-height: 36px; padding: 6px 10px; }
+
+  .lang-switch .lang-btn { padding: 3px 7px; font-size: 11px; }
 }
