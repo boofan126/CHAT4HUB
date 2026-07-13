@@ -416,6 +416,7 @@ const state = {
   channelKeys: {},        // name -> { key: CryptoKey(AES-GCM 256), version: n }  （本机持有，不广播）
   channelMeta: {},        // name -> { kind, creator, keyVersion, members:{}, approvers:{}, membersDh:{} }（网络明文元数据缓存）
   channelRequests: {},    // name -> { addr: { encFrom, ts } }  （待批准申请缓存）
+  addrNick: {},           // address -> 最近一次使用的昵称（从消息/申请里收集，用于成员列表展示）
 };
 const seen = new Set();
 
@@ -666,6 +667,7 @@ async function renderOne(m) {
   const who = mine
     ? (state.nickname || shortAddr(m.address))
     : (m.nick || shortAddr(m.address));
+  if (m.nick) state.addrNick[m.address] = m.nick;   // 收集昵称，供成员列表展示
   el.className = 'msg' + (mine ? ' mine' : '');
   const time = new Date(m.ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 
@@ -992,7 +994,7 @@ function watchChannel(name) {
   // 入群申请（供审批人查看并批准）
   gun.get('web3chat').get('chanmeta').get(name).get('requests').map().on((data, addr) => {
     if (!state.channelRequests[name]) state.channelRequests[name] = {};
-    if (data && data.encFrom) state.channelRequests[name][addr] = data;
+    if (data && data.encFrom) { state.channelRequests[name][addr] = data; if (data.nick) state.addrNick[addr] = data.nick; }
     else if (state.channelRequests[name]) delete state.channelRequests[name][addr];
     if (name === state.context.id) { renderMemberPanel(); updateMemberBadge(); }
   });
@@ -1016,9 +1018,10 @@ async function receiveChannelKey(name, data) {
 // 发送入群申请（含我的 ECDH 公钥，供审批人回发 K）
 function sendJoinRequest(name) {
   if (!gun) return;
-  gun.get('web3chat').get('chanmeta').get(name).get('requests').get(state.address).put({ encFrom: state.dhPubB64, ts: Date.now() });
+  const req = { encFrom: state.dhPubB64, ts: Date.now(), nick: state.nickname || '' };
+  gun.get('web3chat').get('chanmeta').get(name).get('requests').get(state.address).put(req);
   if (!state.channelRequests[name]) state.channelRequests[name] = {};
-  state.channelRequests[name][state.address] = { encFrom: state.dhPubB64, ts: Date.now() };
+  state.channelRequests[name][state.address] = req;
   if (name === state.context.id) renderMemberPanel();
 }
 // 审批人批准：用 ECDH 把 K 加密后单发给申请人，并把其加入 members/approvers/membersDh
@@ -1165,7 +1168,7 @@ function renderMemberPanel() {
       const isMe = addr === state.address;
       const role = (addr === meta.creator) ? t('roleCreator') : (meta.approvers && meta.approvers[addr] ? t('roleApprover') : '');
       const star = (addr === main) ? '⭐ ' : '';
-      li.innerHTML = `<span class="nm">${star}${isMe ? (state.nickname || shortAddr(addr)) : shortAddr(addr)}</span>`;
+      li.innerHTML = `<span class="nm">${star}${nickOf(addr)}</span>`;
       if (role) { const r = document.createElement('span'); r.className = 'sub'; r.textContent = role; li.appendChild(r); }
       if (meta.creator === state.address && addr !== state.address) {
         const k = document.createElement('span'); k.className = 'del'; k.textContent = t('kick'); k.title = t('kick');
@@ -1183,7 +1186,7 @@ function renderMemberPanel() {
       const h = document.createElement('div'); h.className = 'hint'; h.textContent = t('pendingReq'); body.appendChild(h);
       const ul = document.createElement('ul'); ul.className = 'list';
       for (const [addr, d] of reqs) {
-        const li = document.createElement('li'); li.innerHTML = `<span class="nm">${shortAddr(addr)}</span>`;
+        const li = document.createElement('li'); li.innerHTML = `<span class="nm">${nickOf(addr)}</span>`;
         const btn = document.createElement('button'); btn.className = 'btn primary sm'; btn.textContent = t('approve');
         btn.addEventListener('click', () => approveRequest(name, addr, d.encFrom));
         li.appendChild(btn); ul.appendChild(li);
@@ -1196,6 +1199,11 @@ function renderMemberPanel() {
 }
 function openMemberModal() { const m = $('memberModal'); if (m) { m.hidden = false; renderMemberPanel(); } }
 function closeMemberModal() { const m = $('memberModal'); if (m) m.hidden = true; }
+// 取某地址的展示昵称：自己→本机昵称；他人→消息/申请里收集到的昵称，缺省回退短地址
+function nickOf(addr) {
+  if (addr === state.address) return state.nickname || shortAddr(addr);
+  return (state.addrNick && state.addrNick[addr]) || shortAddr(addr);
+}
 
 /* ---------- 表情 / 表情包选择器 ---------- */
 // Blob -> dataURL（用于把贴图图片转 base64 作为附件发送）
