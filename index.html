@@ -81,6 +81,7 @@
           <div class="panel-head" data-i18n="identityHead">身份 Identity</div>
           <div class="id-addr-row">
             <span class="addr" id="addrLabel" data-i18n-title="addrTitle" title="你的本地身份地址" data-i18n="notLoggedIn">未登录</span>
+            <button class="btn danger sm" id="logoutBtn" data-i18n-title="logoutTitle" title="清空本地身份与所有记录" data-i18n="logout">登出</button>
           </div>
           <div class="row nick-row">
             <span class="nick-label" data-i18n="nickLabel">昵称</span>
@@ -89,9 +90,6 @@
           <div class="row">
             <button class="btn ghost sm" id="exportBtn" data-i18n-title="exportTitle" title="导出身份（JSON 文件，可迁移）" data-i18n="export">导出</button>
             <button class="btn ghost sm" id="importBtn" data-i18n-title="importTitle" title="导入已导出的身份" data-i18n="import">导入</button>
-          </div>
-          <div class="row">
-            <button class="btn danger sm" id="logoutBtn" data-i18n-title="logoutTitle" title="清空本地身份与所有记录" data-i18n="logout">登出</button>
           </div>
           <input type="file" id="importFile" accept="application/json" hidden />
         </section>
