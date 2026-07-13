@@ -7,9 +7,14 @@
 staticSites:
   - name: chat4
     rootDir: .
-    buildCommand: ""
+    buildCommand: echo "Static site: no build step"
     staticPublishPath: .
     pullRequestPreviewsEnabled: true
+    # 告诉 Render 这是纯静态站，不要尝试检测框架或跑 npm
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=3600
 
 services:
   - type: web
@@ -17,9 +22,14 @@ services:
     plan: free
     rootDir: relay
     runtime: node
-    buildCommand: npm install
-    startCommand: node relay.js
-    healthCheckPath: /healthz
+    # 明确锁定 Node 版本（Render 默认用 LTS，但显式指定更可靠）
     envVars:
+      - key: NODE_VERSION
+        value: 20
       - key: PORT
         sync: false
+      - key: GUN_FILE
+        value: ./data
+    buildCommand: npm install --prefer-online
+    startCommand: node relay.js
+    healthCheckPath: /healthz
