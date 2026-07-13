@@ -51,6 +51,7 @@
         <li>你可以在「身份」面板设置<strong>昵称</strong>，昵称会随消息发给对方显示。</li>
         <li><strong>换设备 / 换浏览器想保留同一身份？</strong> 在身份面板点「<strong>导出身份</strong>」下载一个 <span class="ht-code">web3-identity.json</span>（含你的密钥，请妥善保管）；在新设备打开网页后点「<strong>导入身份</strong>」选这个文件，就能恢复成同一个地址与好友关系。</li>
       </ul>
+      <div class="ht-note">🔑 <strong>身份备份的作用</strong>：它带走的是你的「账号（地址）+ 两把密钥」。换设备 / 遗失设备后，在新设备「<strong>导入身份</strong>」即可<strong>恢复同一个地址、好友关系</strong>，并且因为私钥回来了，你能<strong>继续收发消息、解密私人频道与私聊</strong>。<br><strong>但要留意</strong>：聊天记录本身只存在旧设备的浏览器本地（IndexedDB），<strong>身份备份不含聊天内容</strong>。所以——若旧设备还在（换机），请务必再用「<strong>导出记录</strong>」把历史一并带走，新设备「导入身份」+「导入记录」才能既恢复账号、又恢复全部对话（见第七节）；若设备已遗失且从未导出过记录，旧对话无法找回，但「导入身份」至少让你用回同一个账号、继续收发新消息。</div>
       <div class="ht-note">⚠️ 私钥以明文存在本浏览器。任何能打开你浏览器的人都能读到。敏感场景请用「导出身份」备份后清除，或在隐私窗口使用。</div>
 
       <h2>三、界面布局</h2>
@@ -145,6 +146,7 @@
         <li>You can set a <strong>nickname</strong> in the Identity panel; it is sent with your messages and shown to others.</li>
         <li><strong>Want to keep the same identity on another device / browser?</strong> In the Identity panel click "<strong>Export Identity</strong>" to download a <span class="ht-code">web3-identity.json</span> file (contains your keys — keep it safe); on the new device open the page and click "<strong>Import Identity</strong>" to select that file and restore the same address and friend relationships.</li>
       </ul>
+      <div class="ht-note">🔑 <strong>What identity backup does</strong>: it carries your "account (address) + two keys". After a device switch / loss, "<strong>Import Identity</strong>" on the new device <strong>restores the same address and friend relationships</strong>, and because the private keys are back, you can <strong>keep sending/receiving messages and decrypt private channels & DMs</strong>.<br><strong>But note</strong>: chat history itself lives only in the old device's browser (IndexedDB) — <strong>the identity backup contains no chat content</strong>. So — if the old device still works (a switch), also use "<strong>Export</strong>" (history) to carry the history along; on the new device do "Import Identity" + "Import" (history) to restore both your account and all conversations (see Section 7). If the device is already lost and you never exported history, the old conversations can't be recovered, but "Import Identity" at least lets you use the same account again and keep exchanging new messages.</div>
       <div class="ht-note">⚠️ Private keys are stored in plaintext in this browser. Anyone who can open your browser can read them. For sensitive scenarios, use "Export Identity" to back up, then clear, or use a private/incognito window.</div>
 
       <h2>3. Layout</h2>

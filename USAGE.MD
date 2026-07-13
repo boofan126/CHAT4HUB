@@ -24,6 +24,10 @@ The chat app is a **web application** deployed at a networked URL. Just open the
 - You can set a **nickname** in the Identity panel; it is sent with your messages and shown to others.
 - **Want to keep the same identity on another device / browser?** In the Identity panel click "**Export Identity**" to download a `web3-identity.json` file (contains your keys — keep it safe); on the new device open the page and click "**Import Identity**" to select that file and restore the same address and friend relationships.
 
+> 🔑 **What identity backup does**: it carries your "account (address) + two keys". After a device switch / loss, "**Import Identity**" on the new device **restores the same address and friend relationships**, and because the private keys are back, you can **keep sending/receiving messages and decrypt private channels & DMs**.
+>
+> **But note**: chat history itself lives only in the old device's browser (IndexedDB) — **the identity backup contains no chat content**. So — if the old device still works (a switch), also use "**Export**" (history) to carry the history along; on the new device do "Import Identity" + "Import" (history) to restore both your account and all conversations (see Section 7). If the device is already lost and you never exported history, the old conversations can't be recovered, but "Import Identity" at least lets you use the same account again and keep exchanging new messages.
+
 > ⚠️ Private keys are stored in plaintext in this browser. Anyone who can open your browser can read them. For sensitive scenarios, use "Export Identity" to back up, then clear, or use a private/incognito window.
 
 ---
