@@ -40,6 +40,8 @@ const I18N = {
     send: '发送',
     syncLabel: '去中心化同步（GunDB P2P）',
     relayPh: '中继地址，如 http://localhost:8765/gun',
+    nickLabel: '昵称',
+    nickPh: '你的昵称（本机显示，并随消息发给对方）',
     syncHintOff: '关闭：聊天记录仅存于本浏览器（IndexedDB）。',
     syncHintOn: (url) => '开启：消息经中继 ' + url + ' 同步，本机仍留存全部记录（私聊为密文）。',
     syncLive: (url) => '✅ 已连接中继 ' + url + '，联机同步中。',
@@ -91,6 +93,8 @@ const I18N = {
     send: 'Send',
     syncLabel: 'Decentralized Sync (GunDB P2P)',
     relayPh: 'Relay URL, e.g. http://localhost:8765/gun',
+    nickLabel: 'Nickname',
+    nickPh: 'Your nickname (shown locally, sent to peers with messages)',
     syncHintOff: 'Off: chat records are stored only in this browser (IndexedDB).',
     syncHintOn: (url) => 'On: messages sync via relay ' + url + '; all records still kept locally (DMs stay ciphertext).',
     syncLive: (url) => '✅ Connected to relay ' + url + ', syncing live.',
@@ -142,6 +146,8 @@ const I18N = {
     send: 'Senden',
     syncLabel: 'Dezentrale Synchronisation (GunDB P2P)',
     relayPh: 'Relay-URL, z. B. http://localhost:8765/gun',
+    nickLabel: 'Spitzname',
+    nickPh: 'Dein Spitzname (lokal angezeigt, mit Nachrichten an Peers gesendet)',
     syncHintOff: 'Aus: Chat-Verlauf nur in diesem Browser (IndexedDB).',
     syncHintOn: (url) => 'Ein: Nachrichten über Relay ' + url + ' synchronisiert; lokale Kopie bleibt erhalten (DMs als Geheimtext).',
     syncLive: (url) => '✅ Mit Relay ' + url + ' verbunden, Live-Sync aktiv.',
@@ -264,6 +270,7 @@ const state = {
   signPriv: null, signPub: null, signPubB64: null,   // ECDSA —— 签名/地址
   dhPriv: null, dhPubB64: null,                       // ECDH  —— 端到端加密
   address: null,
+  nickname: '',                                          // 使用者自设昵称（本地显示 + 随消息广播）
   syncOn: false,
   relayUrl: RELAY_URL,
   context: { type: 'channel', id: 'global', peer: null },
@@ -308,6 +315,14 @@ async function loadIdentity() {
   state.address = rec.address;
   state.signPubB64 = rec.signPubB64;
   state.dhPubB64 = rec.dhPubB64;
+  state.nickname = rec.nickname || '';
+}
+// 保存昵称到身份记录（导出/导入身份时一并带走）
+async function saveNickname() {
+  const rec = await idbGet('identity', 'me');
+  if (!rec) return;
+  rec.nickname = state.nickname;
+  await idbPut('identity', rec);
 }
 
 async function exportIdentity() {
@@ -431,6 +446,9 @@ async function renderMessages() {
 async function renderOne(m) {
   const el = document.createElement('div');
   const mine = m.address === state.address;
+  const who = mine
+    ? (state.nickname || shortAddr(m.address))
+    : (m.nick || shortAddr(m.address));
   el.className = 'msg' + (mine ? ' mine' : '');
   const time = new Date(m.ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 
@@ -456,7 +474,7 @@ async function renderOne(m) {
 
   el.innerHTML = `
     <div class="meta">
-      <span class="who">${shortAddr(m.address)}</span>
+      <span class="who">${who}</span>
       ${lockHint}
       <span class="${vcls}">${vtxt}</span>
       <span>${time}</span>
@@ -487,6 +505,7 @@ async function sendMessage() {
     msg = {
       id: crypto.randomUUID(), kind: 'dm', ctx: state.context.id, peer: peer.address,
       address: state.address, pubRawB64: state.signPubB64, dhPub: state.dhPubB64, peerDhPub: peer.dhPubRawB64,
+      nick: state.nickname,
       ts: Date.now(), iv, cipher, sig,
     };
   } else {
@@ -494,6 +513,7 @@ async function sendMessage() {
     msg = {
       id: crypto.randomUUID(), kind: 'channel', ctx: state.context.id,
       address: state.address, pubRawB64: state.signPubB64, dhPub: state.dhPubB64,
+      nick: state.nickname,
       ts: Date.now(), text, sig,
     };
   }
@@ -625,6 +645,14 @@ function bindUI() {
 
   // 中继地址：可随时改成你自己的中继（需含 /gun 路径）；同步开着时改地址即重连
   $('relayInput').value = state.relayUrl || RELAY_URL;
+  // 昵称：可随时修改，存本机身份并即时刷新显示
+  $('nickInput').value = state.nickname || '';
+  $('nickInput').addEventListener('change', async (e) => {
+    state.nickname = (e.target.value.trim() || '');
+    await saveNickname();
+    $('addrLabel').textContent = state.nickname || shortAddr(state.address);
+    renderMessages();   // 让已有消息立即用新昵称显示
+  });
   $('relayInput').addEventListener('change', (e) => {
     state.relayUrl = (e.target.value.trim()) || RELAY_URL;
     saveRelay();
@@ -684,7 +712,8 @@ function bindUI() {
   if (state.context.type === 'dm' && (!state.context.peer || !state.friends.has(state.context.peer.address))) {
     state.context = { type: 'channel', id: state.channels[0] || 'global', peer: null };
   }
-  $('addrLabel').textContent = shortAddr(state.address);
+  $('addrLabel').textContent = state.nickname || shortAddr(state.address);
+  $('addrLabel').title = state.address;   // 悬停看完整地址
   bindUI();
   applyI18n();
   renderChannelList(); renderFriendList(); renderCtxHeader();

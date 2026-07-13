@@ -77,6 +77,10 @@
         <span data-i18n="syncLabel">去中心化同步（GunDB P2P）</span>
       </label>
       <div class="row">
+        <span class="nick-label" data-i18n="nickLabel">昵称</span>
+        <input type="text" id="nickInput" maxlength="20" data-i18n-ph="nickPh" placeholder="你的昵称（本机显示，并随消息发给对方）" spellcheck="false" />
+      </div>
+      <div class="row">
         <input type="text" id="relayInput" data-i18n-ph="relayPh" placeholder="中继地址，如 http://localhost:8765/gun" spellcheck="false" />
       </div>
       <span class="hint" id="syncHint">关闭：聊天记录仅存于本浏览器（IndexedDB）。</span>

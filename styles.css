@@ -64,7 +64,8 @@ html, body {
 /* 侧边栏面板 */
 .panel { background: var(--panel); border: 1px solid #233156; border-radius: 12px; padding: 10px; }
 .panel-head { font-size: 13px; font-weight: 700; color: var(--accent); margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
-.row { display: flex; gap: 6px; margin-bottom: 8px; }
+.row { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; }
+.nick-label { flex: 0 0 auto; color: var(--muted); font-size: 13px; min-width: 34px; }
 .row input, .sidebar input[type=text] {
   flex: 1; background: var(--panel-2); border: 1px solid #2a3a63; border-radius: 8px;
   color: var(--text); padding: 5px 8px; font-size: 13px; min-width: 0;
