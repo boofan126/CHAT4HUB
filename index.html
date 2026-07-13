@@ -36,6 +36,11 @@
         </g>
       </svg>
     </div>
+    <div class="welcome-topbar">
+      <button class="btn ghost sm lang-btn" id="langZh" data-lang="zh">中文</button>
+      <button class="btn ghost sm lang-btn" id="langEn" data-lang="en">EN</button>
+      <button class="btn ghost sm" id="howToBtn" data-i18n-title="howToTitle" title="查看使用说明" data-i18n="howTo">使用说明</button>
+    </div>
     <div class="welcome-content">
       <svg class="welcome-logo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
         <defs>
@@ -81,13 +86,7 @@
             <span class="nick-label" data-i18n="nickLabel">昵称</span>
             <input type="text" id="nickInput" maxlength="20" data-i18n-ph="nickPh" placeholder="你的昵称（本机显示，并随消息发给对方）" spellcheck="false" />
           </div>
-          <div class="lang-switch">
-            <button class="btn ghost sm lang-btn" id="langZh" data-lang="zh">中文</button>
-            <button class="btn ghost sm lang-btn" id="langEn" data-lang="en">EN</button>
-            <button class="btn ghost sm lang-btn" id="langDe" data-lang="de">DE</button>
-          </div>
           <div class="row">
-            <button class="btn ghost sm" id="howToBtn" data-i18n-title="howToTitle" title="查看使用说明" data-i18n="howTo">使用说明</button>
             <button class="btn ghost sm" id="exportBtn" data-i18n-title="exportTitle" title="导出身份（JSON 文件，可迁移）" data-i18n="export">导出</button>
             <button class="btn ghost sm" id="importBtn" data-i18n-title="importTitle" title="导入已导出的身份" data-i18n="import">导入</button>
           </div>
