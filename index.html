@@ -201,6 +201,18 @@
     </div>
   </div>
 
+  <!-- 通用提示弹窗（附件过大等） -->
+  <div class="modal" id="alertModal" hidden>
+    <div class="modal-mask" id="alertMask"></div>
+    <div class="modal-card">
+      <div class="modal-head"><span id="alertTitle">提示</span><button class="btn ghost sm" id="alertClose" title="关闭">✕</button></div>
+      <div class="modal-body">
+        <p class="hint" id="alertBody">—</p>
+        <div class="row"><button class="btn primary sm" id="alertOk" data-i18n="ok">确定</button></div>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>

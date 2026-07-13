@@ -56,7 +56,9 @@ const I18N = {
     importMsgFail: '导入失败：',
     attachTitle: '附加文件（图片随消息发送，≤ 1.2 MB）',
     attachBtn: '附件',
-    fileTooBig: '文件过大（已超过 1.2 MB 上限），请压缩后再试。',
+    fileTooBig: '附件请小于 2 MB。图片已自动压缩；若仍过大，请改用更小的文件或截图。',
+    fileTooBigTitle: '文件过大',
+    ok: '确定',
     syncHintOff: '关闭：聊天记录仅存于本浏览器（IndexedDB）。',
     syncHintOn: '开启：消息经中继同步，本机仍留存全部记录（私聊为密文）。',
     syncLive: '✅ 已连接中继，联机同步中。',
@@ -164,7 +166,9 @@ const I18N = {
     exportMsgsTitle: 'Export all chat history (JSON)', importMsgsTitle: 'Import chat history from a backup file',
     attachTitle: 'Attach a file (images sent with message, ≤ 1.2 MB)',
     attachBtn: 'Attach',
-    fileTooBig: 'File too large (over 1.2 MB limit). Compress and retry.',
+    fileTooBig: 'Attachments must be under 2 MB. Images are auto-compressed; if still too large, use a smaller file or a screenshot.',
+    fileTooBigTitle: 'File too large',
+    ok: 'OK',
     importMsgOk: (n) => 'Imported ' + n + ' messages.',
     importMsgFail: 'Import failed: ',
     syncHintOff: 'Off: chat records are stored only in this browser (IndexedDB).',
@@ -277,8 +281,8 @@ function detectLang() {
 // 默认指向本机自建中继；部署后请在界面「中继地址」里改成你自己的中继 URL（需含 /gun 路径）。
 // 注意：GunDB 中继是 Node 服务，免费静态托管（GitHub Pages 等）跑不了，须放能跑 Node 的环境。
 const RELAY_URL = 'https://chat4hub-relay.onrender.com/gun';
-// 附件大小上限：原图约 1.2 MB（base64 后约 1.6 MB）。超过则拒绝发送，保护免费中继不被大文件拖垮。按需调大。
-const MAX_ATTACH_BYTES = 1.2 * 1024 * 1024;
+// 附件大小上限：2 MB。图片发送前自动压缩到上限内；非图片(如 PDF/视频)超过则弹窗提示。保护免费中继不被大文件拖垮。
+const MAX_ATTACH_BYTES = 2 * 1024 * 1024;
 
 /* ---------- 表情 / 表情包（公开资源：Twemoji，MIT / CC-BY-4.0，由 jsDelivr 分发） ---------- */
 // 贴图图片基址：<code>.png 即 Twemoji 72x72 位图（联网加载，点击作为图片附件发送）
@@ -1208,6 +1212,46 @@ function nickOf(addr) {
 function blobToDataURL(blob) {
   return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(blob); });
 }
+
+/* ---------- 图片自动压缩（A 方案：发送前压到上限内） ---------- */
+// 图片附件发送前先压缩：降采样到 maxEdge，再迭代降 JPEG 质量逼近 < MAX_ATTACH_BYTES。
+// 铺白底以兼容透明 PNG（JPEG 无透明通道）。返回 {dataURL,size,type,name}。
+async function compressImage(file, maxEdge = 1600) {
+  const img = await new Promise((res, rej) => {
+    const u = URL.createObjectURL(file);
+    const im = new Image();
+    im.onload = () => { URL.revokeObjectURL(u); res(im); };
+    im.onerror = () => { URL.revokeObjectURL(u); rej(new Error('imgLoad')); };
+    im.src = u;
+  });
+  const w0 = img.naturalWidth || img.width, h0 = img.naturalHeight || img.height;
+  const scale = Math.min(1, maxEdge / Math.max(w0, h0));
+  const w = Math.max(1, Math.round(w0 * scale));
+  const h = Math.max(1, Math.round(h0 * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);   // 白底，兼容透明图转 JPEG
+  ctx.drawImage(img, 0, 0, w, h);
+  let q = 0.85;
+  let dataURL = canvas.toDataURL('image/jpeg', q);
+  // dataURL 长度 × 3/4 ≈ 字节数；迭代降质量，直到压到上限内（或质量触底）
+  while (dataURL.length > MAX_ATTACH_BYTES * 4 / 3 && q > 0.4) {
+    q -= 0.1;
+    dataURL = canvas.toDataURL('image/jpeg', q);
+  }
+  const size = Math.floor(dataURL.length * 3 / 4);
+  const name = file.name.replace(/\.(png|webp|gif|bmp)$/i, '.jpg').replace(/\.(jpe?g)$/i, '.jpg');
+  return { dataURL, size, type: 'image/jpeg', name };
+}
+
+/* ---------- 通用提示弹窗 ---------- */
+function showAlert(titleText, bodyText) {
+  $('alertTitle').textContent = titleText;
+  $('alertBody').textContent = bodyText;
+  $('alertModal').hidden = false;
+}
+
 function openEmojiPanel() {
   const p = $('emojiPanel'); if (!p) return;
   p.classList.add('open');
@@ -1301,19 +1345,30 @@ function bindUI() {
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeEmojiPanel(); });
 
-  // 附件：选文件 → 读成 base64 → 暂存待发；超限拦截
+  // 附件：选文件 → 图片先自动压缩 → 超限弹窗提示（不再用原生 alert）
   $('attachBtn').addEventListener('click', () => $('fileInput').click());
-  $('fileInput').addEventListener('change', (e) => {
+  $('fileInput').addEventListener('change', async (e) => {
     const f = e.target.files && e.target.files[0];
+    e.target.value = '';   // 提前清空，避免压缩 await 期间值残留
     if (!f) return;
-    if (f.size > MAX_ATTACH_BYTES) { alert(t('fileTooBig')); e.target.value = ''; return; }
+    // 图片：先自动压缩到上限内
+    if (f.type && f.type.indexOf('image/') === 0) {
+      try {
+        const c = await compressImage(f);
+        if (c.size > MAX_ATTACH_BYTES) { showAlert(t('fileTooBigTitle'), t('fileTooBig')); return; }
+        state.pendingFile = { name: c.name, type: c.type, size: c.size, data: c.dataURL };
+        renderAttachPreview();
+        return;
+      } catch (_) { /* 压缩失败，退回原图路径 */ }
+    }
+    // 非图片 / 压缩失败：原图受上限约束
+    if (f.size > MAX_ATTACH_BYTES) { showAlert(t('fileTooBigTitle'), t('fileTooBig')); return; }
     const reader = new FileReader();
     reader.onload = () => {
       state.pendingFile = { name: f.name, type: f.type || 'application/octet-stream', size: f.size, data: reader.result };
       renderAttachPreview();
     };
     reader.readAsDataURL(f);
-    e.target.value = '';
   });
 
   $('syncToggle').checked = state.syncOn;
@@ -1442,6 +1497,11 @@ function bindUI() {
   const closePub = () => { $('pubModal').hidden = true; };
   $('pubClose').addEventListener('click', closePub);
   $('pubMask').addEventListener('click', closePub);
+  // 通用提示弹窗关闭
+  const closeAlert = () => { $('alertModal').hidden = true; };
+  $('alertClose').addEventListener('click', closeAlert);
+  $('alertMask').addEventListener('click', closeAlert);
+  $('alertOk').addEventListener('click', closeAlert);
   $('pubCopyBtn').addEventListener('click', () => {
     navigator.clipboard.writeText(myPubCard()).then(() => alert(t('copied')));
   });
