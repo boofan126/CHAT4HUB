@@ -1,0 +1,25 @@
+# Render Blueprint：一次连接仓库即同时部署两层
+#   1) chat4        —— 静态站（前端，免费、无需绑卡）
+#   2) chat4-relay  —— GunDB 中继（Node Web 服务，免费、无需绑卡；
+#                          空闲 15 分钟后会休眠，下次访问冷启动 30–60 秒）
+# 用法：Render 控制台 → New + → Blueprint → 连接含本文件的仓库即可。
+
+staticSites:
+  - name: chat4
+    rootDir: .
+    buildCommand: ""
+    staticPublishPath: .
+    pullRequestPreviewsEnabled: true
+
+services:
+  - type: web
+    name: chat4-relay
+    plan: free
+    rootDir: relay
+    runtime: node
+    buildCommand: npm install
+    startCommand: node relay.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: PORT
+        sync: false

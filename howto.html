@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>使用说明 · Web3 本地聊天</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body.howto { background:#0b0e14; color:#d7dde6; }
+    .ht-wrap { max-width: 840px; margin: 0 auto; padding: 22px 18px 90px; }
+    .ht-top { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+    .ht-top h1 { font-size:20px; margin:0; color:#eaf2ff; }
+    .ht-lang-switch { display:flex; gap:6px; }
+    .lang-btn.active { background:#1b4fff; color:#fff; border-color:#1b4fff; }
+    .ht-back { display:inline-block; margin:6px 0 8px; }
+    .ht-lang h2 { font-size:16px; color:#6cf; margin:26px 0 8px; border-bottom:1px solid rgba(108,204,255,.25); padding-bottom:6px; }
+    .ht-lang p, .ht-lang li { line-height:1.7; font-size:14px; }
+    .ht-lang table { width:100%; border-collapse:collapse; margin:10px 0; font-size:13.5px; }
+    .ht-lang th, .ht-lang td { border:1px solid rgba(255,255,255,.12); padding:8px 10px; text-align:left; vertical-align:top; }
+    .ht-lang th { background:rgba(108,204,255,.10); }
+    .ht-note { background:rgba(108,204,255,.08); border-left:3px solid #6cf; padding:10px 12px; border-radius:6px; margin:10px 0; font-size:13.5px; }
+    .ht-code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; background:rgba(255,255,255,.08); padding:2px 6px; border-radius:4px; }
+    a { color:#6cf; }
+  </style>
+</head>
+<body class="howto">
+  <div class="ht-wrap">
+    <div class="ht-top">
+      <h1 data-ht-title>使用说明</h1>
+      <div class="ht-lang-switch lang-switch">
+        <button class="btn ghost sm lang-btn" data-ht-lang="zh">中文</button>
+        <button class="btn ghost sm lang-btn" data-ht-lang="en">EN</button>
+        <button class="btn ghost sm lang-btn" data-ht-lang="de">DE</button>
+      </div>
+    </div>
+    <a class="btn ghost sm ht-back" href="index.html">← 返回聊天 / Back to chat</a>
+
+    <!-- ===== 中文 ===== -->
+    <div class="ht-lang" data-lang="zh">
+      <p>本说明面向<strong>普通使用者</strong>。你不需要懂区块链、不需要装钱包、不需要注册账号——打开网页就能聊。</p>
+      <div class="ht-note">应用场景：你想和朋友私密聊天，又不想把记录存到任何公司的服务器。本应用把聊天记录只存在<strong>你自己的浏览器</strong>里，并通过可选的「去中心化同步」让你和朋友互通消息。三种语言：界面支持<strong>中文 / English / Deutsch</strong>，首次打开会<strong>自动跟随你系统的语言</strong>。</div>
+
+      <h2>一、怎么打开</h2>
+      <p>聊天站是一个网页，需要放在「能联网的网页地址」打开（<span class="ht-code">localhost</span> 或 <span class="ht-code">https</span>）。<strong>直接双击 <span class="ht-code">index.html</span>（file://）在部分浏览器里加密功能可能用不了</strong>，请用下面任一方式：</p>
+      <table><tr><th>方式</th><th>操作</th></tr>
+        <tr><td>本机临时用</td><td>在文件夹里执行 <span class="ht-code">python -m http.server 8080</span>，浏览器开 <span class="ht-code">http://localhost:8080/</span></td></tr>
+        <tr><td>别人部署好的网址</td><td>直接点链接打开（如 GitHub Pages / Render 给你的 <span class="ht-code">https://…</span> 地址）</td></tr>
+      </table>
+      <p>打开后你<strong>不需要登录、不需要密码</strong>——身份会自动生成（见第二节）。</p>
+
+      <h2>二、你的身份（自动生成）</h2>
+      <ul>
+        <li>首次打开，网页会在你浏览器里<strong>自动生成一对本地身份</strong>（含两把密钥），并显示一个 <span class="ht-code">0x…</span> 开头的地址，这就是你的「Web3 账号」。</li>
+        <li>这个身份<strong>只存在你这台浏览器的本地存储（IndexedDB）</strong>，不会上传到任何服务器。</li>
+        <li>刷新页面、关掉重开，身份都在，还是同一个地址。</li>
+        <li><strong>换设备 / 换浏览器想保留同一身份？</strong> 点顶栏「<strong>导出</strong>」下载一个 <span class="ht-code">web3-identity.json</span>（含你的密钥，请妥善保管）；在新设备打开网页后点「<strong>导入</strong>」选这个文件，就能恢复成同一个地址。</li>
+      </ul>
+      <div class="ht-note">⚠️ 私钥以明文存在本浏览器。任何能打开你浏览器的人都能读到。敏感场景请用「导出」备份后清除，或在隐私窗口使用。</div>
+
+      <h2>三、界面布局</h2>
+      <ul>
+        <li><strong>电脑端（PC）</strong>：左侧是「频道 / 好友」栏，右侧是聊天区，顶栏有语言切换和身份操作。</li>
+        <li><strong>手机端</strong>：默认只显示聊天区；点左上角 <strong>☰</strong> 按钮滑出左侧栏，点空白处（遮罩）或选好频道后自动收起。</li>
+      </ul>
+
+      <h2>四、频道聊天（公开、可验证）</h2>
+      <ol>
+        <li>在左侧「频道」输入框填一个频道名（如 <span class="ht-code">global</span>），点「<strong>加入</strong>」。</li>
+        <li>频道里所有人发的消息都是<strong>公开、带数字签名</strong>的——每条消息旁会显示「✓ 已验证」，表示这条消息确实来自对应地址、没被篡改。</li>
+        <li>你和朋友只要<strong>加入同一个频道名</strong>，并且都开启了同步（见第六节），就能互相看到消息。</li>
+        <li>想移除某个频道？左侧频道列表里<strong>每个非默认频道右侧都带一个 <span class="ht-code">✕</span> 删除按钮</strong>，点它确认即可<strong>删除该频道及其本地消息</strong>（默认 <span class="ht-code">global</span> 频道受保护，不可删、始终保留）。</li>
+      </ol>
+      <div class="ht-note">频道消息是公开的，不要发私密内容。私密内容请用私聊（第五节）。</div>
+
+      <h2>五、加好友 & 私聊（端到端加密）</h2>
+      <p><strong>方式 A（最简单，需先在同一个频道里）</strong></p>
+      <ol>
+        <li>你和对方都加入同一个频道，对方在频道里发过一条消息；</li>
+        <li>你点对方那条消息下方的「<strong>＋好友</strong>」按钮——系统会<strong>自动带上他的两把公钥</strong>，加好后就能私聊。</li>
+      </ol>
+      <p><strong>方式 B（手动粘贴「公钥卡片」）</strong></p>
+      <ol>
+        <li>让对方在顶栏点「<strong>复制我的公钥</strong>」（复制的是一段 JSON「公钥卡片」），发给你；</li>
+        <li>你点左侧「<strong>＋好友</strong>」，把那段 JSON 粘贴进去确认即可。</li>
+      </ol>
+      <p><strong>私聊（🔒 E2EE）</strong>：点左侧好友列表里某人进入私聊。私聊内容是<strong>端到端加密</strong>的：只有你和对方能解密看到明文，连中转服务器看到的也只是乱码密文。对方必须<strong>已有你的加密公钥</strong>才能给你发加密消息。</p>
+      <div class="ht-note">如果提示「对方缺少加密公钥」，按上方方式 A/B 补一下即可。</div>
+
+      <h2>六、去中心化同步（让消息能跨人/跨设备）</h2>
+      <p>默认情况下，你的消息<strong>只存在本机</strong>，别人连不到你。要和朋友互通，需要开同步并指向同一个中转节点（中继）：</p>
+      <ol>
+        <li>顶栏找到「<strong>去中心化同步</strong>」开关，打开；</li>
+        <li>在「<strong>中继地址</strong>」填你们约好的中继 URL（如 <span class="ht-code">https://chat4-relay.onrender.com/gun</span>，或本机 <span class="ht-code">http://localhost:8765/gun</span>）；</li>
+        <li>你和朋友填<strong>同一个</strong>中继地址，加入<strong>同一个</strong>频道名，即可互通；加为好友后即可私聊。</li>
+      </ol>
+      <div class="ht-note">开启同步后，<strong>聊天记录仍然只存在各自浏览器本地</strong>（IndexedDB），只是消息会通过中继转发给对方。如果你要的是「连我的消息都不出本机」，请<strong>保持同步关闭</strong>。免费的公共中继节点多数已停用，请使用自建/部署好的中继地址。</div>
+
+      <h2>七、语言切换</h2>
+      <ul>
+        <li>顶栏右侧有「<strong>中文 | EN | DE</strong>」三个按钮，点一下即时切换界面语言。</li>
+        <li>你的选择会被记住（下次打开还是你选的语言）。</li>
+        <li><strong>首次打开</strong>会自动匹配你操作系统/浏览器的语言：系统设成德语就显示德语，设成英文就英文，其他情况默认英文。</li>
+      </ul>
+
+      <h2>八、常见问题</h2>
+      <p><strong>Q：消息发不出去 / 朋友看不到我？</strong><br>A：检查是否打开了「去中心化同步」、中继地址是否填对且可达；确认你们频道名完全一致。纯本地模式（同步关着）本来就是单人单机，别人看不到你。</p>
+      <p><strong>Q：私聊显示「无法解密」？</strong><br>A：通常是公钥没对上。请重新用「＋好友」加对方（方式 A 最稳），确保双方都拿到了彼此的加密公钥。</p>
+      <p><strong>Q：换手机/电脑还能用原来的身份吗？</strong><br>A：能。用「导出」备份 <span class="ht-code">web3-identity.json</span>，在新设备「导入」即可恢复同一地址和好友关系。</p>
+      <p><strong>Q：记录会丢吗？</strong><br>A：只要不清浏览器缓存/本地存储、不换设备且没备份，记录就在。重要对话建议导出身份备份。</p>
+      <p><strong>Q：这算真正的「去中心化」吗？</strong><br>A：纯本地模式最贴合「记录只在本地的」；开启 GunDB 同步后，消息经过 P2P 中继在多节点间转发，才算真正去中心化互通。两种模式都在你的掌控之中。</p>
+    </div>
+
+    <!-- ===== English ===== -->
+    <div class="ht-lang" data-lang="en" hidden>
+      <p>This guide is for <strong>end users</strong>. You don't need to understand blockchain, install a wallet, or create an account — just open the page and chat.</p>
+      <div class="ht-note">Use case: you want to chat privately with friends without storing records on any company's server. This app keeps chat history <strong>only in your own browser</strong>, and optionally lets you and your friends exchange messages via "decentralized sync". Three languages: the UI supports <strong>中文 / English / Deutsch</strong>; on first open it <strong>auto-detects your system language</strong>.</div>
+
+      <h2>1. How to open</h2>
+      <p>The chat app is a web page and must be opened from a "networked web address" (<span class="ht-code">localhost</span> or <span class="ht-code">https</span>). <strong>Double-clicking <span class="ht-code">index.html</span> directly (file://) may break the encryption features in some browsers</strong> — please use one of the methods below:</p>
+      <table><tr><th>Method</th><th>Steps</th></tr>
+        <tr><td>Local on your machine</td><td>In the folder run <span class="ht-code">python -m http.server 8080</span>, then open <span class="ht-code">http://localhost:8080/</span></td></tr>
+        <tr><td>A deployed URL</td><td>Just click the link (e.g. the <span class="ht-code">https://…</span> address from GitHub Pages / Render)</td></tr>
+      </table>
+      <p>When opened, you <strong>don't log in and don't need a password</strong> — your identity is generated automatically (see Section 2).</p>
+
+      <h2>2. Your identity (auto-generated)</h2>
+      <ul>
+        <li>On first open, the page <strong>automatically generates a local identity</strong> (two keys) in your browser, and shows a <span class="ht-code">0x…</span> address — this is your "Web3 account".</li>
+        <li>This identity <strong>exists only in your browser's local storage (IndexedDB)</strong> and is never uploaded to any server.</li>
+        <li>Refreshing or reopening keeps the same identity and same address.</li>
+        <li><strong>Want to keep the same identity on another device / browser?</strong> Click "<strong>Export</strong>" in the top bar to download a <span class="ht-code">web3-identity.json</span> file (contains your keys — keep it safe); on the new device open the page and click "<strong>Import</strong>" to select that file and restore the same address.</li>
+      </ul>
+      <div class="ht-note">⚠️ Private keys are stored in plaintext in this browser. Anyone who can open your browser can read them. For sensitive scenarios, use "Export" to back up, then clear, or use a private/incognito window.</div>
+
+      <h2>3. Layout</h2>
+      <ul>
+        <li><strong>Desktop (PC)</strong>: left side is the "Channels / Friends" panel, right side is the chat area; the top bar has language switch and identity actions.</li>
+        <li><strong>Mobile</strong>: only the chat area shows by default; tap the <strong>☰</strong> button at top-left to slide out the left panel, tap the blank area (overlay) or pick a channel to auto-collapse it.</li>
+      </ul>
+
+      <h2>4. Channel chat (public, verifiable)</h2>
+      <ol>
+        <li>In the left "Channels" input, type a channel name (e.g. <span class="ht-code">global</span>) and click "<strong>Join</strong>".</li>
+        <li>Everyone's messages in a channel are <strong>public and digitally signed</strong> — each message shows "✓ Verified", meaning it genuinely came from that address and wasn't tampered with.</li>
+        <li>As long as you and a friend <strong>join the same channel name</strong> and both have sync on (Section 6), you can see each other's messages.</li>
+        <li>To remove a channel: in the left channel list, <strong>every non-default channel has a <span class="ht-code">✕</span> delete button on its right</strong>. Click it and confirm to <strong>delete that channel and its local messages</strong> (the default <span class="ht-code">global</span> channel is protected — not deletable, always kept).</li>
+      </ol>
+      <div class="ht-note">Channel messages are public — don't post private content there. Use direct messages for private content (Section 5).</div>
+
+      <h2>5. Adding friends & direct messages (end-to-end encrypted)</h2>
+      <p><strong>Method A (easiest, requires being in the same channel first)</strong></p>
+      <ol>
+        <li>You and the other person join the same channel, and they post at least one message there;</li>
+        <li>You click the "<strong>＋ Friend</strong>" button under their message — the system <strong>automatically grabs both of their public keys</strong>, and once added you can DM them.</li>
+      </ol>
+      <p><strong>Method B (manually paste a "public-key card")</strong></p>
+      <ol>
+        <li>Ask the other person to click "<strong>Copy my public key</strong>" in the top bar (it copies a JSON "public-key card") and send it to you;</li>
+        <li>You click "<strong>＋ Friend</strong>" on the left, paste that JSON in and confirm.</li>
+      </ol>
+      <p><strong>Direct messages (🔒 E2EE)</strong>: click a person in the left friends list to enter a DM. DM content is <strong>end-to-end encrypted</strong>: only you and the other person can decrypt and read it; even the relay server only sees garbled ciphertext. The other person must <strong>already have your encryption public key</strong> to send you encrypted messages.</p>
+      <div class="ht-note">If you see "recipient missing encryption key", just re-add them via A/B above.</div>
+
+      <h2>6. Decentralized sync (lets messages cross devices / people)</h2>
+      <p>By default your messages <strong>stay only on your machine</strong> and others can't reach you. To chat with friends, turn on sync and point to the same relay node:</p>
+      <ol>
+        <li>Find the "<strong>Decentralized sync</strong>" switch in the top bar and turn it on;</li>
+        <li>In "<strong>Relay address</strong>" enter the relay URL you agreed on (e.g. <span class="ht-code">https://chat4-relay.onrender.com/gun</span>, or local <span class="ht-code">http://localhost:8765/gun</span>);</li>
+        <li>You and your friend enter <strong>the same</strong> relay address and join <strong>the same</strong> channel name to talk; after adding each other as friends you can DM.</li>
+      </ol>
+      <div class="ht-note">Even with sync on, <strong>chat history stays only in each person's own browser (IndexedDB)</strong> — messages are just relayed to the other party. If you want "not even my messages leave this machine", keep sync <strong>off</strong>. Most free public relay nodes are dead; use a self-hosted / deployed relay address.</div>
+
+      <h2>7. Language switch</h2>
+      <ul>
+        <li>The top-right has "<strong>中文 | EN | DE</strong>" buttons; click to switch the UI language instantly.</li>
+        <li>Your choice is remembered (next open keeps your selected language).</li>
+        <li><strong>On first open</strong> it auto-matches your OS/browser language: German system → German UI, English → English, otherwise defaults to English.</li>
+      </ul>
+
+      <h2>8. FAQ</h2>
+      <p><strong>Q: Messages won't send / friend can't see me?</strong><br>A: Check that "Decentralized sync" is on, the relay address is correct and reachable; confirm you're using the exact same channel name. Pure-local mode (sync off) is single-user by design — nobody can see you.</p>
+      <p><strong>Q: DM shows "cannot decrypt"?</strong><br>A: Usually the public keys don't match. Re-add the person via "＋ Friend" (Method A is most reliable), making sure both sides have each other's encryption public key.</p>
+      <p><strong>Q: Can I use my identity on a new phone/computer?</strong><br>A: Yes. Use "Export" to back up <span class="ht-code">web3-identity.json</span>, then "Import" on the new device to restore the same address and friend relationships.</p>
+      <p><strong>Q: Will I lose my history?</strong><br>A: As long as you don't clear browser cache/local storage, don't switch devices without a backup, the history stays. For important conversations, export your identity as a backup.</p>
+      <p><strong>Q: Is this truly "decentralized"?</strong><br>A: Pure-local mode best fits "records stay only local". After enabling GunDB sync, messages are relayed across nodes via P2P — that's the real decentralized part. Both modes stay under your control.</p>
+    </div>
+
+    <!-- ===== Deutsch ===== -->
+    <div class="ht-lang" data-lang="de" hidden>
+      <p>Diese Anleitung richtet sich an <strong>normale Nutzer</strong>. Du musst keine Blockchain verstehen, keine Wallet installieren und kein Konto anlegen — einfach die Seite öffnen und chatten.</p>
+      <div class="ht-note">Anwendungsfall: Du willst privat mit Freunden chatten, ohne Aufzeichnungen auf einem Server eines Unternehmens zu speichern. Diese App speichert den Chatverlauf <strong>nur in deinem eigenen Browser</strong> und ermöglicht dir und deinen Freunden über die optionale „dezentrale Synchronisation“ den Nachrichtenaustausch. Drei Sprachen: Die Oberfläche unterstützt <strong>中文 / English / Deutsch</strong>; beim ersten Öffnen <strong>erkennt sie automatisch deine Systemsprache</strong>.</div>
+
+      <h2>1. Wie öffnen</h2>
+      <p>Die Chat-App ist eine Webseite und muss über eine „vernetzte Adresse“ (<span class="ht-code">localhost</span> oder <span class="ht-code">https</span>) geöffnet werden. <strong>Doppelklick auf <span class="ht-code">index.html</span> (file://) kann in manchen Browsern die Verschlüsselung funktionsunfähig machen</strong> — bitte eine der folgenden Methoden nutzen:</p>
+      <table><tr><th>Methode</th><th>Schritte</th></tr>
+        <tr><td>Lokal am Rechner</td><td>Im Ordner <span class="ht-code">python -m http.server 8080</span> ausführen, dann <span class="ht-code">http://localhost:8080/</span> öffnen</td></tr>
+        <tr><td>Bereitgestellte URL</td><td>Link einfach anklicken (z. B. die <span class="ht-code">https://…</span> Adresse von GitHub Pages / Render)</td></tr>
+      </table>
+      <p>Nach dem Öffnen <strong>musst du dich nicht anmelden und brauchst kein Passwort</strong> — die Identität wird automatisch erzeugt (siehe Abschnitt 2).</p>
+
+      <h2>2. Deine Identität (automatisch erzeugt)</h2>
+      <ul>
+        <li>Beim ersten Öffnen <strong>erzeugt die Seite automatisch eine lokale Identität</strong> (zwei Schlüssel) in deinem Browser und zeigt eine <span class="ht-code">0x…</span> Adresse — das ist dein „Web3-Konto“.</li>
+        <li>Diese Identität <strong>existiert nur im lokalen Speicher deines Browsers (IndexedDB)</strong> und wird niemals auf einen Server hochgeladen.</li>
+        <li>Beim Neuladen oder erneuten Öffnen bleibt dieselbe Identität und dieselbe Adresse.</li>
+        <li><strong>Identität auf anderem Gerät / Browser behalten?</strong> Klicke in der oberen Leiste auf „<strong>Exportieren</strong>“ und lade <span class="ht-code">web3-identity.json</span> herunter (enthält deine Schlüssel — sicher aufbewahren); auf dem neuen Gerät Seite öffnen und „<strong>Importieren</strong>“ wählen, um dieselbe Adresse wiederherzustellen.</li>
+      </ul>
+      <div class="ht-note">⚠️ Private Schlüssel werden im Klartext in diesem Browser gespeichert. Jeder, der deinen Browser öffnen kann, kann sie lesen. Für sensible Szenarien: mit „Exportieren“ sichern, dann löschen, oder ein privates/Inkognito-Fenster nutzen.</div>
+
+      <h2>3. Aufbau</h2>
+      <ul>
+        <li><strong>Desktop (PC)</strong>: links die „Kanäle / Freunde“-Leiste, rechts der Chat-Bereich; oben Sprachumschalter und Identitätsaktionen.</li>
+        <li><strong>Mobil</strong>: standardmäßig nur der Chat-Bereich; oben links <strong>☰</strong> tipen, um die linke Leiste auszufahren; auf den leeren Bereich (Overlay) tippen oder Kanal wählen, um sie einzuklappen.</li>
+      </ul>
+
+      <h2>4. Kanal-Chat (öffentlich, verifizierbar)</h2>
+      <ol>
+        <li>Im linken „Kanäle“-Eingabefeld einen Kanalnamen eingeben (z. B. <span class="ht-code">global</span>) und „<strong>Beitreten</strong>“ klicken.</li>
+        <li>Alle Nachrichten in einem Kanal sind <strong>öffentlich und digital signiert</strong> — jede Nachricht zeigt „✓ Verifiziert“, d. h. sie stammt wirklich von dieser Adresse und wurde nicht verändert.</li>
+        <li>Wenn du und ein Freund <strong>denselben Kanalnamen beitreten</strong> und beide die Synchronisation aktiviert haben (Abschnitt 6), seht ihr eure Nachrichten.</li>
+        <li>Einen Kanal entfernen: In der linken Kanalliste hat <strong>jeder nicht-standard Kanal rechts einen <span class="ht-code">✕</span> Lösch-Button</strong>. Klicken und bestätigen, um <strong>diesen Kanal samt seinen lokalen Nachrichten zu löschen</strong> (der Standardkanal <span class="ht-code">global</span> ist geschützt — nicht löschbar, bleibt erhalten).</li>
+      </ol>
+      <div class="ht-note">Kanal-Nachrichten sind öffentlich — keine privaten Inhalte dort posten. Private Inhalte bitte per Direktnachricht (Abschnitt 5).</div>
+
+      <h2>5. Freunde hinzufügen & Direktnachrichten (Ende-zu-Ende verschlüsselt)</h2>
+      <p><strong>Methode A (am einfachsten, erfordert selben Kanal)</strong></p>
+      <ol>
+        <li>Du und die andere Person treten demselben Kanal bei, und sie postet mindestens eine Nachricht dort;</li>
+        <li>Du klickst den „<strong>＋ Freund</strong>“-Button unter ihrer Nachricht — das System <strong>übernimmt automatisch beide ihrer öffentlichen Schlüssel</strong>, danach kannst du DM schreiben.</li>
+      </ol>
+      <p><strong>Methode B („Schlüsselkarte“ manuell einfügen)</strong></p>
+      <ol>
+        <li>Bitte die andere Person, oben „<strong>Meinen öffentlichen Schlüssel kopieren</strong>“ zu klicken (kopiert eine JSON-„Schlüsselkarte“) und sie dir zu senden;</li>
+        <li>Du klickst links „<strong>＋ Freund</strong>“, fügst das JSON ein und bestätigst.</li>
+      </ol>
+      <p><strong>Direktnachrichten (🔒 E2EE)</strong>: in der linken Freundesliste eine Person anklicken, um eine DM zu öffnen. DM-Inhalte sind <strong>Ende-zu-Ende verschlüsselt</strong>: nur du und die andere Person können sie entschlüsseln; selbst der Relay-Server sieht nur unlesbaren Geheimtext. Die andere Person muss <strong>deinen Verschlüsselungsschlüssel bereits haben</strong>, um dir verschlüsselt zu schreiben.</p>
+      <div class="ht-note">Falls „Empfänger fehlt Verschlüsselungsschlüssel“ erscheint, einfach wie oben per A/B ergänzen.</div>
+
+      <h2>6. Dezentralle Synchronisation (Nachrichten geräte-/personenübergreifend)</h2>
+      <p>Standardmäßig <strong>bleiben deine Nachrichten nur auf deinem Gerät</strong>, andere erreichen dich nicht. Um mit Freunden zu chatten, Synchronisation aktivieren und auf denselben Relay-Knoten zeigen:</p>
+      <ol>
+        <li>Oben den Schalter „<strong>Dezentrale Synchronisation</strong>“ aktivieren;</li>
+        <li>Bei „<strong>Relay-Adresse</strong>“ die vereinbarte Relay-URL eingeben (z. B. <span class="ht-code">https://chat4-relay.onrender.com/gun</span> oder lokal <span class="ht-code">http://localhost:8765/gun</span>);</li>
+        <li>Du und dein Freund gebt <strong>dieselbe</strong> Relay-Adresse ein und treten <strong>demselben</strong> Kanal bei, um zu chatten; nach dem Hinzufügen als Freunde könnt ihr DM nutzen.</li>
+      </ol>
+      <div class="ht-note">Auch mit aktiver Synchronisation <strong>bleibt der Chatverlauf nur im jeweils eigenen Browser (IndexedDB)</strong> — Nachrichten werden lediglich über den Relay weitergeleitet. Wenn du willst, dass „nicht einmal meine Nachrichten das Gerät verlassen“, Synchronisation <strong>aus</strong> lassen. Die meisten kostenlosen öffentlichen Relay-Knoten sind tot; bitte einen selbst gehosteten / bereitgestellten Relay nutzen.</div>
+
+      <h2>7. Sprachumschalter</h2>
+      <ul>
+        <li>Oben rechts gibt es „<strong>中文 | EN | DE</strong>“; Klick schaltet die Oberflächensprache sofort um.</li>
+        <li>Deine Wahl wird gespeichert (beim nächsten Öffnen bleibt sie erhalten).</li>
+        <li><strong>Beim ersten Öffnen</strong> wird automatisch deine System-/Browser-Sprache übernommen: deutsches System → deutsche Oberfläche, englisch → englisch, sonst Standard Englisch.</li>
+      </ul>
+
+      <h2>8. Häufige Fragen</h2>
+      <p><strong>F: Nachrichten senden nicht / Freund sieht mich nicht?</strong><br>A: Prüfe, ob „Dezentrale Synchronisation“ an ist, die Relay-Adresse korrekt und erreichbar ist; stelle sicher, dass der Kanalname exakt gleich ist. Der reine Lokalmodus (Sync aus) ist absichtlich Einzelnutzer — dich sieht niemand.</p>
+      <p><strong>F: DM zeigt „entschlüsseln fehlgeschlagen“?</strong><br>A: Meist passen die öffentlichen Schlüssel nicht. Füge die Person erneut per „＋ Freund“ hinzu (Methode A am zuverlässigsten), sodass beide Seiten die Verschlüsselungsschlüssel des anderen haben.</p>
+      <p><strong>F: Kann ich meine Identität auf neuem Handy/PC nutzen?</strong><br>A: Ja. Mit „Exportieren“ <span class="ht-code">web3-identity.json</span> sichern, dann auf dem neuen Gerät „Importieren“, um dieselbe Adresse und Freundschaften wiederherzustellen.</p>
+      <p><strong>F: Geht mein Verlauf verloren?</strong><br>A: Solange du nicht den Browser-Cache/lokalen Speicher löschst und ohne Sicherung das Gerät wechselst, bleibt der Verlauf. Bei wichtigen Gesprächen Identität exportieren.</p>
+      <p><strong>F: Ist das wirklich „dezentral“?</strong><br>A: Der reine Lokalmodus entspricht am besten „Aufzeichnungen nur lokal“. Nach Aktivierung der GunDB-Sync werden Nachrichten über P2P-Relay über Knoten weitergeleitet — das ist der echte dezentrale Teil. Beide Modi hast du unter Kontrolle.</p>
+    </div>
+  </div>
+
+  <script>
+    const HT = {
+      zh: { title: '使用说明' },
+      en: { title: 'How to Use' },
+      de: { title: 'Anleitung' },
+    };
+    let htLang = localStorage.getItem('htLang');
+    if (!htLang) {
+      const prefs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
+      htLang = 'en';
+      for (const p of prefs) {
+        const l = (p || '').toLowerCase();
+        if (l.startsWith('zh')) { htLang = 'zh'; break; }
+        if (l.startsWith('de')) { htLang = 'de'; break; }
+        if (l.startsWith('en')) { htLang = 'en'; break; }
+      }
+    }
+    if (!HT[htLang]) htLang = 'en';
+    function applyHt() {
+      document.documentElement.lang = htLang === 'zh' ? 'zh-CN' : htLang;
+      document.querySelectorAll('.ht-lang').forEach(d => { d.hidden = d.dataset.lang !== htLang; });
+      const t = HT[htLang].title;
+      const titleEl = document.querySelector('[data-ht-title]');
+      if (titleEl) titleEl.textContent = t;
+      document.title = t + ' · Web3 本地聊天';
+      document.querySelectorAll('.ht-lang-switch .lang-btn').forEach(b => b.classList.toggle('active', b.dataset.htLang === htLang));
+    }
+    document.querySelectorAll('.ht-lang-switch .lang-btn').forEach(b => {
+      b.addEventListener('click', () => { htLang = b.dataset.htLang; localStorage.setItem('htLang', htLang); applyHt(); });
+    });
+    applyHt();
+  </script>
+</body>
+</html>

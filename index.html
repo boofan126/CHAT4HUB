@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web3 本地聊天 · Channels / DM / Friends</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- GunDB：可选的去中心化 P2P 同步层（公共中继）。无网络时自动回退纯本地。 -->
+  <script src="https://gun.eco/dist/latest/gun.js"></script>
+</head>
+<body>
+  <div class="app">
+    <!-- 顶部栏 -->
+    <header class="topbar">
+      <button class="nav-toggle" id="navToggle" aria-label="打开菜单">☰</button>
+      <div class="brand">
+        <span class="logo">◈</span>
+        <span class="title" data-i18n="brandTitle">Web3 本地聊天</span>
+        <span class="badge" id="modeBadge">本地模式</span>
+      </div>
+      <div class="identity">
+        <div class="lang-switch">
+          <button class="btn ghost sm lang-btn" id="langZh" data-lang="zh">中文</button>
+          <button class="btn ghost sm lang-btn" id="langEn" data-lang="en">EN</button>
+          <button class="btn ghost sm lang-btn" id="langDe" data-lang="de">DE</button>
+        </div>
+        <button class="btn ghost sm" id="howToBtn" data-i18n-title="howToTitle" title="查看使用说明" data-i18n="howTo">使用说明</button>
+        <span class="addr" id="addrLabel" data-i18n-title="addrTitle" title="你的本地身份地址" data-i18n="notLoggedIn">未登录</span>
+        <button class="btn ghost" id="exportBtn" data-i18n-title="exportTitle" title="导出身份（JSON 文件，可迁移）" data-i18n="export">导出</button>
+        <button class="btn ghost" id="importBtn" data-i18n-title="importTitle" title="导入已导出的身份" data-i18n="import">导入</button>
+        <button class="btn danger" id="logoutBtn" data-i18n-title="logoutTitle" title="清空本地身份与所有记录" data-i18n="logout">登出</button>
+        <input type="file" id="importFile" accept="application/json" hidden />
+      </div>
+    </header>
+
+    <!-- 主体：侧边栏 + 聊天区 -->
+    <div class="body">
+      <aside class="sidebar">
+        <section class="panel">
+          <div class="panel-head" data-i18n="channels">频道 Channels</div>
+          <div class="row">
+            <input type="text" id="newChannel" data-i18n-ph="newChannelPh" placeholder="新频道名" maxlength="24" />
+            <button class="btn primary sm" id="joinChannelBtn" data-i18n="join">加入</button>
+          </div>
+          <ul class="list" id="channelList"></ul>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <span data-i18n="friends">好友 Friends</span>
+            <button class="btn ghost sm" id="addFriendBtn" data-i18n-title="addFriendTitle" title="手动添加好友（需对方公钥）">＋</button>
+          </div>
+          <ul class="list" id="friendList"></ul>
+        </section>
+
+        <section class="panel mykey">
+          <div class="panel-head" data-i18n="myPubKey">我的公钥</div>
+          <code id="myPub" data-i18n-title="myPubHint" title="把这段发给对方，对方才能给你发加密私聊">—</code>
+          <button class="btn ghost sm" id="copyPubBtn" data-i18n="copy">复制</button>
+        </section>
+      </aside>
+
+      <main class="main">
+        <div class="ctx-header" id="ctxHeader"># 未选择</div>
+        <div class="messages" id="messages"></div>
+        <footer class="composer">
+          <input type="text" id="msgInput" data-i18n-ph="msgInputPh" placeholder="输入消息，回车发送…（私聊内容将被端到端加密）" autocomplete="off" />
+          <button class="btn primary" id="sendBtn" data-i18n="send">发送</button>
+        </footer>
+      </main>
+    </div>
+
+    <!-- 设置区 -->
+    <section class="settings">
+      <label class="switch">
+        <input type="checkbox" id="syncToggle" />
+        <span data-i18n="syncLabel">去中心化同步（GunDB P2P）</span>
+      </label>
+      <div class="row">
+        <input type="text" id="relayInput" data-i18n-ph="relayPh" placeholder="中继地址，如 http://localhost:8765/gun" spellcheck="false" />
+      </div>
+      <span class="hint" id="syncHint">关闭：聊天记录仅存于本浏览器（IndexedDB）。</span>
+    </section>
+
+    <div class="overlay" id="overlay"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

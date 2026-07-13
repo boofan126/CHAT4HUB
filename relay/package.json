@@ -1,0 +1,14 @@
+{
+  "name": "web3-chat-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Self-hosted GunDB relay for the Web3 local chat (D:/chat4)",
+  "main": "relay.js",
+  "scripts": {
+    "start": "node relay.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "gun": "^0.2020.1241"
+  }
+}

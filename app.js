@@ -1,0 +1,685 @@
+/* =====================================================================
+ * Web3 本地聊天 · 频道 / 私聊 / 好友  + 私聊端到端加密
+ * - 登录：方案 A —— 浏览器本地自动生成身份，无密码/无钱包/无 SIWE
+ * - 存储：聊天记录仅存本浏览器 IndexedDB
+ * - 密钥：两对独立密钥
+ *     ① 签名密钥 ECDSA P-256 —— 用于消息签名 / 验真 / 派生地址
+ *     ② 加密密钥 ECDH  P-256 —— 用于私聊端到端加密（派生 AES-GCM）
+ * - 频道：公开消息，签名（验真）但不加密
+ * - 私聊：ECDH 派生共享密钥 + AES-GCM 端到端加密，中继只见密文
+ * - 好友：本地通讯录（地址 + 签名公钥 + 加密公钥），用于发起加密私聊
+ * - 同步：可选 GunDB P2P 中继（默认关闭，纯本地）
+ * ===================================================================== */
+
+'use strict';
+
+/* ---------- 国际化 i18n（中 / EN） ---------- */
+const I18N = {
+  zh: {
+    brandTitle: 'Web3 本地聊天',
+    howTo: '使用说明', howToTitle: '查看使用说明（新页面）',
+    modeLocal: '本地模式',
+    modeDecentral: '去中心化',
+    notLoggedIn: '未登录',
+    addrTitle: '你的本地身份地址',
+    export: '导出', exportTitle: '导出身份（JSON 文件，可迁移）',
+    import: '导入', importTitle: '导入已导出的身份',
+    logout: '登出', logoutTitle: '清空本地身份与所有记录',
+    channels: '频道 Channels',
+    newChannelPh: '新频道名',
+    join: '加入',
+    friends: '好友 Friends',
+    addFriendTitle: '手动添加好友（需对方公钥）',
+    myPubKey: '我的公钥',
+    myPubHint: '把这段发给对方，对方才能给你发加密私聊',
+    copy: '复制',
+    ctxNone: '# 未选择',
+    dmPrefix: '🔒 私聊 · ',
+    channelPrefix: '# ',
+    msgInputPh: '输入消息，回车发送…（私聊内容将被端到端加密）',
+    send: '发送',
+    syncLabel: '去中心化同步（GunDB P2P）',
+    relayPh: '中继地址，如 http://localhost:8765/gun',
+    syncHintOff: '关闭：聊天记录仅存于本浏览器（IndexedDB）。',
+    syncHintOn: (url) => '开启：消息经中继 ' + url + ' 同步，本机仍留存全部记录（私聊为密文）。',
+    noGun: '未加载 GunDB（可能离线），已回退纯本地模式。',
+    emptyDM: '端到端加密私聊已开启，内容仅你与对方可读。',
+    emptyChannel: '频道为空，发送第一条（公开签名消息）。',
+    verified: '✓ 已验证', unverified: '✗ 验签失败',
+    e2ee: '🔒 E2EE',
+    addFriendBtn: '＋好友',
+    lackKeyDecrypt: '🔒 缺少对方公钥，无法解密',
+    cannotDecrypt: '🔒 无法解密（密钥不匹配）',
+    dmNoKey: '该好友缺少加密公钥，无法加密。请让对方在频道发条消息后点「＋好友」（自动带公钥），或用其「公钥卡片」添加。',
+    pasteCard: '粘贴好友的「公钥卡片」（在对方客户端点「复制我的公钥」得到）：',
+    friendAdded: '好友已添加：',
+    addFailed: '添加失败：',
+    copied: '已复制你的「公钥卡片」，发给好友即可被加为好友并收发加密私聊。',
+    importOk: '身份导入成功',
+    importFail: '导入失败：',
+    logoutConfirm: '确认登出？将清空本地身份与全部聊天/好友记录（不可恢复）。',
+    initFail: '初始化失败：',
+    initFailTip: '\n（注意：crypto.subtle 需安全上下文，请用 localhost 或 https 打开）',
+    delFriend: '删除好友',
+    delChannel: '删除',
+    delChannelConfirm: (n) => '确认删除频道「' + n + '」？该频道内的所有本地消息也将一并清除（不可恢复）。',
+  },
+  en: {
+    brandTitle: 'Web3 Local Chat',
+    howTo: 'How to Use', howToTitle: 'Open the user guide (new page)',
+    modeLocal: 'Local', 
+    modeDecentral: 'Decentralized',
+    notLoggedIn: 'Not signed in',
+    addrTitle: 'Your local identity address',
+    export: 'Export', exportTitle: 'Export identity (JSON file, portable)',
+    import: 'Import', importTitle: 'Import a previously exported identity',
+    logout: 'Logout', logoutTitle: 'Clear local identity and all records',
+    channels: 'Channels',
+    newChannelPh: 'New channel name',
+    join: 'Join',
+    friends: 'Friends',
+    addFriendTitle: 'Add a friend manually (needs their public key)',
+    myPubKey: 'My Public Key',
+    myPubHint: 'Send this to others so they can send you encrypted DMs',
+    copy: 'Copy',
+    ctxNone: '# none',
+    dmPrefix: '🔒 DM · ',
+    channelPrefix: '# ',
+    msgInputPh: 'Type a message, Enter to send… (DMs are end-to-end encrypted)',
+    send: 'Send',
+    syncLabel: 'Decentralized Sync (GunDB P2P)',
+    relayPh: 'Relay URL, e.g. http://localhost:8765/gun',
+    syncHintOff: 'Off: chat records are stored only in this browser (IndexedDB).',
+    syncHintOn: (url) => 'On: messages sync via relay ' + url + '; all records still kept locally (DMs stay ciphertext).',
+    noGun: 'GunDB not loaded (maybe offline), fell back to local-only mode.',
+    emptyDM: 'End-to-end encrypted DM enabled — only you and your peer can read it.',
+    emptyChannel: 'Channel is empty. Send the first (public, signed) message.',
+    verified: '✓ Verified', unverified: '✗ Verify failed',
+    e2ee: '🔒 E2EE',
+    addFriendBtn: '+Friend',
+    lackKeyDecrypt: '🔒 Missing peer public key, cannot decrypt',
+    cannotDecrypt: '🔒 Cannot decrypt (key mismatch)',
+    dmNoKey: 'This friend has no encryption key, cannot encrypt. Ask them to post in a channel then click "+Friend" (auto-includes keys), or add via their "public key card".',
+    pasteCard: 'Paste your friend\'s "public key card" (they get it via "Copy My Public Key"):',
+    friendAdded: 'Friend added: ',
+    addFailed: 'Add failed: ',
+    copied: 'Your "public key card" is copied. Send it to friends so they can add you and exchange encrypted DMs.',
+    importOk: 'Identity imported successfully',
+    importFail: 'Import failed: ',
+    logoutConfirm: 'Confirm logout? This clears your local identity and all chat/friend records (irreversible).',
+    initFail: 'Init failed: ',
+    initFailTip: '\n(Note: crypto.subtle needs a secure context — open via localhost or https)',
+    delFriend: 'Remove friend',
+    delChannel: 'Delete',
+    delChannelConfirm: (n) => 'Delete channel "' + n + '"? All local messages in it will also be cleared (irreversible).',
+  },
+  de: {
+    brandTitle: 'Web3 Lokaler Chat',
+    howTo: 'Anleitung', howToTitle: 'Bedienungsanleitung öffnen (neue Seite)',
+    modeLocal: 'Lokal',
+    modeDecentral: 'Dezentral',
+    notLoggedIn: 'Nicht angemeldet',
+    addrTitle: 'Deine lokale Identitätsadresse',
+    export: 'Exportieren', exportTitle: 'Identität exportieren (JSON-Datei, übertragbar)',
+    import: 'Importieren', importTitle: 'Zuvor exportierte Identität importieren',
+    logout: 'Abmelden', logoutTitle: 'Lokale Identität und alle Datensätze löschen',
+    channels: 'Kanäle / Channels',
+    newChannelPh: 'Neuer Kanalname',
+    join: 'Beitreten',
+    friends: 'Freunde / Friends',
+    addFriendTitle: 'Freund manuell hinzufügen (öffentlicher Schlüssel nötig)',
+    myPubKey: 'Mein öffentlicher Schlüssel',
+    myPubHint: 'Sende dies an andere, damit sie dir verschlüsselte DMs senden können',
+    copy: 'Kopieren',
+    ctxNone: '# Keine Auswahl',
+    dmPrefix: '🔒 DM · ',
+    channelPrefix: '# ',
+    msgInputPh: 'Nachricht eingeben, Enter zum Senden… (DMs Ende-zu-Ende verschlüsselt)',
+    send: 'Senden',
+    syncLabel: 'Dezentrale Synchronisation (GunDB P2P)',
+    relayPh: 'Relay-URL, z. B. http://localhost:8765/gun',
+    syncHintOff: 'Aus: Chat-Verlauf nur in diesem Browser (IndexedDB).',
+    syncHintOn: (url) => 'Ein: Nachrichten über Relay ' + url + ' synchronisiert; lokale Kopie bleibt erhalten (DMs als Geheimtext).',
+    noGun: 'GunDB nicht geladen (evtl. offline), auf lokalen Modus zurückgefallen.',
+    emptyDM: 'Ende-zu-Ende-verschlüsselte DM aktiv — nur du und dein Gegenüber können sie lesen.',
+    emptyChannel: 'Kanal ist leer. Sende die erste (öffentliche, signierte) Nachricht.',
+    verified: '✓ Verifiziert', unverified: '✗ Verifizierung fehlgeschlagen',
+    e2ee: '🔒 E2EE',
+    addFriendBtn: '+ Freund',
+    lackKeyDecrypt: '🔒 Öffentlicher Schlüssel fehlt, Entschlüsselung nicht möglich',
+    cannotDecrypt: '🔒 Entschlüsselung fehlgeschlagen (Schlüssel passen nicht)',
+    dmNoKey: 'Diesem Freund fehlt der Verschlüsselungsschlüssel. Bitte ihn, in einem Kanal zu posten, und klicke dann „+ Freund“ (Schlüssel automatisch), oder füge ihn über seine „Schlüsselkarte“ hinzu.',
+    pasteCard: 'Füge die „Schlüsselkarte“ deines Freundes ein (über „Meinen öffentlichen Schlüssel kopieren“ erhalten):',
+    friendAdded: 'Freund hinzugefügt: ',
+    addFailed: 'Hinzufügen fehlgeschlagen: ',
+    copied: 'Deine „Schlüsselkarte“ wurde kopiert. Sende sie an Freunde, damit sie dich hinzufügen und verschlüsselte DMs austauschen.',
+    importOk: 'Identität erfolgreich importiert',
+    importFail: 'Import fehlgeschlagen: ',
+    logoutConfirm: 'Abmelden bestätigen? Lokale Identität und alle Chat-/Freundesdaten werden gelöscht (nicht wiederherstellbar).',
+    initFail: 'Initialisierung fehlgeschlagen: ',
+    initFailTip: '\n(Hinweis: crypto.subtle benötigt sicheren Kontext — bitte über localhost oder https öffnen)',
+    delFriend: 'Freund entfernen',
+    delChannel: 'Löschen',
+    delChannelConfirm: (n) => 'Kanal "' + n + '" löschen? Alle lokalen Nachrichten darin werden ebenfalls entfernt (nicht wiederherstellbar).',
+  },
+};
+let LANG = 'zh';
+const LANG_ATTR = { zh: 'zh-CN', en: 'en', de: 'de' };
+function t(key, arg) {
+  const v = (I18N[LANG] && I18N[LANG][key]) != null ? I18N[LANG][key] : (I18N.zh[key] != null ? I18N.zh[key] : key);
+  return typeof v === 'function' ? v(arg) : v;
+}
+function applyI18n() {
+  document.documentElement.lang = LANG_ATTR[LANG] || 'en';
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.getAttribute('data-i18n')); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.setAttribute('placeholder', t(el.getAttribute('data-i18n-ph'))); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.setAttribute('title', t(el.getAttribute('data-i18n-title'))); });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === LANG));
+  // 动态区域重渲染
+  if (state.address) { $('addrLabel').textContent = shortAddr(state.address); }
+  renderCtxHeader();
+  setModeText();
+  renderChannelList();   // 刷新动态文案（删除按钮标题等）
+  renderFriendList();
+}
+async function setLang(lang) {
+  if (!I18N[lang]) lang = 'en';   // 未知语言回退 en
+  LANG = lang;
+  await idbPut('meta', { key: 'lang', value: LANG });
+  applyI18n();
+  renderMessages();
+}
+/* 跟随浏览器/系统语言自动选择（仅当用户未手动覆盖时） */
+function detectLang() {
+  const prefs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
+  for (const p of prefs) {
+    const l = (p || '').toLowerCase();
+    if (l.startsWith('zh')) return 'zh';
+    if (l.startsWith('de')) return 'de';
+    if (l.startsWith('en')) return 'en';
+  }
+  return 'en'; // 兜底
+}
+
+/* ---------- 中继地址（可配置） ---------- */
+// 默认指向本机自建中继；部署后请在界面「中继地址」里改成你自己的中继 URL（需含 /gun 路径）。
+// 注意：GunDB 中继是 Node 服务，免费静态托管（GitHub Pages 等）跑不了，须放能跑 Node 的环境。
+const RELAY_URL = 'http://localhost:8765/gun';
+
+/* ---------- 工具 ---------- */
+const $ = (id) => document.getElementById(id);
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+
+function bufToBase64(buf) { const b = new Uint8Array(buf); let s = ''; for (const x of b) s += String.fromCharCode(x); return btoa(s); }
+function base64ToBuf(b64) { const s = atob(b64); const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b.buffer; }
+function shortAddr(a) { return a ? a.slice(0, 6) + '…' + a.slice(-4) : ''; }
+
+/* ---------- IndexedDB ---------- */
+const DB_NAME = 'web3chat';
+let db = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 2); // version 2：新增 friends / meta
+    req.onupgradeneeded = () => {
+      const d = req.result;
+      if (!d.objectStoreNames.contains('identity')) d.createObjectStore('identity', { keyPath: 'key' });
+      if (!d.objectStoreNames.contains('messages')) {
+        const ms = d.createObjectStore('messages', { keyPath: 'id' });
+        ms.createIndex('ctx', 'ctx', { unique: false });
+        ms.createIndex('ts', 'ts', { unique: false });
+      }
+      if (!d.objectStoreNames.contains('friends')) d.createObjectStore('friends', { keyPath: 'address' });
+      if (!d.objectStoreNames.contains('meta')) d.createObjectStore('meta', { keyPath: 'key' });
+    };
+    req.onsuccess = () => { db = req.result; resolve(db); };
+    req.onerror = () => reject(req.error);
+  });
+}
+function idbGet(store, key) {
+  return new Promise((res, rej) => { const t = db.transaction(store, 'readonly'); const r = t.objectStore(store).get(key); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+}
+function idbPut(store, val) {
+  return new Promise((res, rej) => { const t = db.transaction(store, 'readwrite'); t.objectStore(store).put(val); t.oncomplete = () => res(); t.onerror = () => rej(t.error); });
+}
+function idbGetAll(store) {
+  return new Promise((res, rej) => { const t = db.transaction(store, 'readonly'); const r = t.objectStore(store).getAll(); r.onsuccess = () => res(r.result || []); r.onerror = () => rej(r.error); });
+}
+function idbDelete(store, key) {
+  return new Promise((res, rej) => { const t = db.transaction(store, 'readwrite'); t.objectStore(store).delete(key); t.oncomplete = () => res(); t.onerror = () => rej(t.error); });
+}
+function idbClear(store) {
+  return new Promise((res, rej) => { const t = db.transaction(store, 'readwrite'); t.objectStore(store).clear(); t.oncomplete = () => res(); t.onerror = () => rej(t.error); });
+}
+
+/* ---------- 身份（方案 A） ---------- */
+const state = {
+  signPriv: null, signPub: null, signPubB64: null,   // ECDSA —— 签名/地址
+  dhPriv: null, dhPubB64: null,                       // ECDH  —— 端到端加密
+  address: null,
+  syncOn: false,
+  relayUrl: RELAY_URL,
+  context: { type: 'channel', id: 'global', peer: null },
+  channels: [],
+  friends: new Map(),
+};
+const seen = new Set();
+
+async function deriveAddress(rawBuf) {
+  const h = await crypto.subtle.digest('SHA-256', rawBuf);
+  const bytes = new Uint8Array(h).slice(-20);
+  let hex = '';
+  for (const b of bytes) hex += b.toString(16).padStart(2, '0');
+  return '0x' + hex;
+}
+
+// 生成两对独立密钥：签名(ECDSA) + 加密(ECDH)
+async function generateIdentity() {
+  const sign = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+  const dh = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey', 'deriveBits']);
+
+  const signPrivJwk = await crypto.subtle.exportKey('jwk', sign.privateKey);
+  const signRawPub = await crypto.subtle.exportKey('raw', sign.publicKey);
+  const signPubB64 = bufToBase64(signRawPub);
+
+  const dhPrivJwk = await crypto.subtle.exportKey('jwk', dh.privateKey);
+  const dhRawPub = await crypto.subtle.exportKey('raw', dh.publicKey);
+  const dhPubB64 = bufToBase64(dhRawPub);
+
+  const address = await deriveAddress(signRawPub);
+  const rec = { key: 'me', signPrivJwk, signPubB64, dhPrivJwk, dhPubB64, address };
+  await idbPut('identity', rec);
+  return rec;
+}
+
+async function loadIdentity() {
+  let rec = await idbGet('identity', 'me');
+  if (!rec) rec = await generateIdentity();
+  state.signPriv = await crypto.subtle.importKey('jwk', rec.signPrivJwk, { name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign']);
+  state.signPub = await crypto.subtle.importKey('raw', base64ToBuf(rec.signPubB64), { name: 'ECDSA', namedCurve: 'P-256' }, true, ['verify']);
+  state.dhPriv = await crypto.subtle.importKey('jwk', rec.dhPrivJwk, { name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey', 'deriveBits']);
+  state.address = rec.address;
+  state.signPubB64 = rec.signPubB64;
+  state.dhPubB64 = rec.dhPubB64;
+}
+
+async function exportIdentity() {
+  const rec = await idbGet('identity', 'me');
+  return JSON.stringify(rec, null, 2);
+}
+
+// 「公钥卡片」：把地址 + 签名公钥 + 加密公钥打包，方便好友一键添加
+function myPubCard() {
+  return JSON.stringify({ addr: state.address, sign: state.signPubB64, dh: state.dhPubB64 });
+}
+
+async function importIdentity(json) {
+  const rec = JSON.parse(json);
+  if (!rec || !rec.signPrivJwk || !rec.signPubB64 || !rec.dhPrivJwk || !rec.dhPubB64 || !rec.address)
+    throw new Error('身份文件格式不正确');
+  await idbPut('identity', { key: 'me', ...rec });
+  await loadIdentity();
+}
+
+/* ---------- 签名 / 验签（ECDSA） ---------- */
+async function signMessage(payload) {
+  const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, state.signPriv, enc.encode(payload));
+  return bufToBase64(sig);
+}
+async function verifyMessage(pubRawB64, payload, sigB64) {
+  try {
+    const pub = await crypto.subtle.importKey('raw', base64ToBuf(pubRawB64), { name: 'ECDSA', namedCurve: 'P-256' }, true, ['verify']);
+    return !!(await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, pub, base64ToBuf(sigB64), enc.encode(payload)));
+  } catch (e) { return false; }
+}
+
+/* ---------- 私聊端到端加密（ECDH → AES-GCM） ---------- */
+// 用「我的 ECDH 私钥」+「对方 ECDH 公钥」派生共享 AES 密钥
+async function deriveAES(myDhPriv, peerDhPubB64) {
+  const peerPub = await crypto.subtle.importKey('raw', base64ToBuf(peerDhPubB64), { name: 'ECDH', namedCurve: 'P-256' }, true, []);
+  return crypto.subtle.deriveKey(
+    { name: 'ECDH', public: peerPub }, myDhPriv,
+    { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+  );
+}
+async function encryptText(aesKey, text) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, enc.encode(text));
+  return { iv: bufToBase64(iv.buffer), cipher: bufToBase64(ct) };
+}
+async function decryptText(aesKey, ivB64, cipherB64) {
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: base64ToBuf(ivB64) }, aesKey, base64ToBuf(cipherB64));
+  return dec.decode(pt);
+}
+// 解密时取「对方的 ECDH 公钥」：自己发的用对方 dh 公钥(peerDhPub)，对方发的用其 dh 公钥(dhPub)
+function otherPubForDecrypt(m) {
+  return (m.address === state.address) ? m.peerDhPub : m.dhPub;
+}
+
+/* 私聊房间 ID：双方地址排序后哈希，保证一致 */
+async function dmRoomId(a, b) {
+  const s = [a, b].sort().join('|');
+  const h = await crypto.subtle.digest('SHA-256', enc.encode(s));
+  return 'dm_' + [...new Uint8Array(h)].map(x => x.toString(16).padStart(2, '0')).join('').slice(0, 16);
+}
+
+/* ---------- 元数据 ---------- */
+async function loadMeta() {
+  const ch = await idbGet('meta', 'channels');
+  state.channels = (ch && Array.isArray(ch.value)) ? ch.value : ['global'];
+  const sync = await idbGet('meta', 'syncOn');
+  state.syncOn = !!(sync && sync.value);
+  const relay = await idbGet('meta', 'relayUrl');
+  state.relayUrl = (relay && relay.value) ? relay.value : RELAY_URL;
+  const lang = await idbGet('meta', 'lang');
+  LANG = (lang && I18N[lang.value]) ? lang.value : detectLang();
+  const last = await idbGet('meta', 'lastCtx');
+  if (last && last.value) state.context = last.value;
+}
+async function saveChannels() { await idbPut('meta', { key: 'channels', value: state.channels }); }
+async function saveSync() { await idbPut('meta', { key: 'syncOn', value: state.syncOn }); }
+async function saveRelay() { await idbPut('meta', { key: 'relayUrl', value: state.relayUrl }); }
+async function saveCtx() { await idbPut('meta', { key: 'lastCtx', value: state.context }); }
+
+/* ---------- 好友 ---------- */
+async function loadFriends() {
+  const list = await idbGetAll('friends');
+  state.friends = new Map(list.map(f => [f.address, f]));
+}
+// address 由签名公钥推导，保证与消息里的地址一致
+async function addFriendRaw(address, signPubB64, dhPubB64, nickname) {
+  if (!address) return;
+  if (state.friends.has(address)) return;
+  state.friends.set(address, { address, signPubB64: signPubB64 || null, dhPubRawB64: dhPubB64 || null, nickname: nickname || shortAddr(address) });
+  await idbPut('friends', state.friends.get(address));
+  renderFriendList();
+}
+async function removeFriend(address) {
+  state.friends.delete(address);
+  await idbDelete('friends', address);
+  renderFriendList();
+  if (state.context.type === 'dm' && state.context.peer && state.context.peer.address === address) {
+    switchToChannel(state.channels[0] || 'global');
+  }
+}
+
+/* ---------- 消息：存 / 取 / 渲染 ---------- */
+async function saveMessage(msg) { await idbPut('messages', msg); seen.add(msg.id); }
+async function localMessagesForCtx(ctx) {
+  const all = await idbGetAll('messages');
+  return all.filter(m => m.ctx === ctx).sort((a, b) => a.ts - b.ts);
+}
+async function renderMessages() {
+  const box = $('messages');
+  const list = await localMessagesForCtx(state.context.id);
+  box.innerHTML = '';
+  if (list.length === 0) {
+    const e = document.createElement('div'); e.className = 'empty';
+    e.textContent = state.context.type === 'dm' ? t('emptyDM') : t('emptyChannel');
+    box.appendChild(e); return;
+  }
+  for (const m of list) box.appendChild(await renderOne(m));
+  box.scrollTop = box.scrollHeight;
+}
+async function renderOne(m) {
+  const el = document.createElement('div');
+  const mine = m.address === state.address;
+  el.className = 'msg' + (mine ? ' mine' : '');
+  const time = new Date(m.ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+
+  let text, verified, lockHint = '';
+  if (m.kind === 'dm') {
+    verified = await verifyMessage(m.pubRawB64, m.cipher, m.sig);
+    try {
+      const otherPub = otherPubForDecrypt(m);
+      text = otherPub ? await decryptText(await deriveAES(state.dhPriv, otherPub), m.iv, m.cipher)
+                      : t('lackKeyDecrypt');
+    } catch (e) { text = t('cannotDecrypt'); }
+    lockHint = '<span class="lock">' + t('e2ee') + '</span>';
+  } else {
+    verified = await verifyMessage(m.pubRawB64, m.text, m.sig);
+    text = m.text;
+  }
+
+  const vtxt = verified ? t('verified') : t('unverified');
+  const vcls = verified ? 'verified' : 'unverified';
+  // 非本人且在频道里 → 提供「加好友」（附带其签名公钥 + 加密公钥）
+  const canAdd = !mine && m.kind === 'channel' && m.pubRawB64 && m.dhPub && !state.friends.has(m.address);
+  const addBtn = canAdd ? `<span class="add" data-addr="${m.address}" data-sign="${m.pubRawB64}" data-dh="${m.dhPub}">${t('addFriendBtn')}</span>` : '';
+
+  el.innerHTML = `
+    <div class="meta">
+      <span class="who">${shortAddr(m.address)}</span>
+      ${lockHint}
+      <span class="${vcls}">${vtxt}</span>
+      <span>${time}</span>
+      ${addBtn}
+    </div>
+    <div class="body"></div>`;
+  el.querySelector('.body').textContent = text; // textContent 防 XSS
+  const ab = el.querySelector('.add');
+  if (ab) ab.addEventListener('click', () => addFriendRaw(ab.dataset.addr, ab.dataset.sign, ab.dataset.dh));
+  return el;
+}
+
+async function sendMessage() {
+  const input = $('msgInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  let msg;
+  if (state.context.type === 'dm') {
+    const peer = state.context.peer;
+    if (!peer || !peer.dhPubRawB64) {
+      alert(t('dmNoKey'));
+      return;
+    }
+    const aes = await deriveAES(state.dhPriv, peer.dhPubRawB64); // 用我的 ECDH 私钥 + 对方 ECDH 公钥
+    const { iv, cipher } = await encryptText(aes, text);
+    const sig = await signMessage(cipher);                        // 对密文签名（用我的 ECDSA 私钥）
+    msg = {
+      id: crypto.randomUUID(), kind: 'dm', ctx: state.context.id, peer: peer.address,
+      address: state.address, pubRawB64: state.signPubB64, dhPub: state.dhPubB64, peerDhPub: peer.dhPubRawB64,
+      ts: Date.now(), iv, cipher, sig,
+    };
+  } else {
+    const sig = await signMessage(text);
+    msg = {
+      id: crypto.randomUUID(), kind: 'channel', ctx: state.context.id,
+      address: state.address, pubRawB64: state.signPubB64, dhPub: state.dhPubB64,
+      ts: Date.now(), text, sig,
+    };
+  }
+  await saveMessage(msg);
+  input.value = '';
+  await renderMessages();
+  if (state.syncOn && gun) gun.get('web3chat').get(msg.id).put(msg);
+}
+
+/* ---------- 上下文切换 ---------- */
+function switchToChannel(name) {
+  state.context = { type: 'channel', id: name, peer: null };
+  saveCtx(); renderCtxHeader(); renderChannelList(); renderMessages(); closeNav();
+}
+async function switchToDM(friend) {
+  const id = await dmRoomId(state.address, friend.address);
+  state.context = { type: 'dm', id, peer: friend };
+  saveCtx(); renderCtxHeader(); renderFriendList(); renderMessages(); closeNav();
+}
+function renderCtxHeader() {
+  const h = $('ctxHeader');
+  if (!h) return;
+  if (state.context.type === 'dm') {
+    const p = state.context.peer;
+    h.textContent = t('dmPrefix') + (p ? (p.nickname || shortAddr(p.address)) : '');
+  } else {
+    h.textContent = t('channelPrefix') + state.context.id;
+  }
+}
+
+/* ---------- 侧边栏渲染 ---------- */
+function renderChannelList() {
+  const ul = $('channelList'); ul.innerHTML = '';
+  for (const name of state.channels) {
+    const li = document.createElement('li');
+    if (state.context.type === 'channel' && state.context.id === name) li.className = 'active';
+    const canDel = name !== 'global';   // 默认频道 global 不可删
+    li.innerHTML = `<span class="nm"># ${name}</span>` + (canDel ? `<span class="del" title="${t('delChannel')}">✕</span>` : '');
+    li.addEventListener('click', (e) => {
+      if (e.target.classList.contains('del')) { deleteChannel(name); }
+      else { switchToChannel(name); }
+    });
+    ul.appendChild(li);
+  }
+}
+// 删除频道：从列表移除（保护默认频道 global）并清理其本地消息
+async function deleteChannel(name) {
+  if (name === 'global') return;
+  if (!confirm(t('delChannelConfirm', name))) return;
+  state.channels = state.channels.filter(c => c !== name);
+  await saveChannels();
+  if (state.context.type === 'channel' && state.context.id === name) {
+    switchToChannel(state.channels[0] || 'global');   // 内部已重渲染列表
+  } else {
+    renderChannelList();
+  }
+  // 清理该频道下所有本地消息（仅本机，不影响同步对端）
+  const all = await idbGetAll('messages');
+  for (const m of all) if (m.ctx === name) await idbDelete('messages', m.id);
+}
+function renderFriendList() {
+  const ul = $('friendList'); ul.innerHTML = '';
+  for (const f of state.friends.values()) {
+    const li = document.createElement('li');
+    const active = state.context.type === 'dm' && state.context.peer && state.context.peer.address === f.address;
+    if (active) li.className = 'active';
+    li.innerHTML = `<span><span class="nm">${f.nickname || shortAddr(f.address)}</span><br><span class="sub">${shortAddr(f.address)}</span></span><span class="del" title="${t('delFriend')}">✕</span>`;
+    li.addEventListener('click', (e) => { if (e.target.classList.contains('del')) { removeFriend(f.address); } else { switchToDM(f); } });
+    ul.appendChild(li);
+  }
+}
+function renderMyPub() { $('myPub').textContent = state.dhPubB64; } // 展示加密公钥（好友加密用）
+
+/* ---------- 可选：GunDB 去中心化同步 ---------- */
+let gun = null;
+let appEl = null;           // 移动端抽屉控制
+function closeNav() { if (appEl) appEl.classList.remove('nav-open'); }
+function connectGun() {
+  if (typeof Gun === 'undefined') { $('syncHint').textContent = t('noGun'); return false; }
+  const url = (state.relayUrl || RELAY_URL).trim();
+  gun = Gun({ peers: [url], localStorage: false, radisk: false });
+  gun.get('web3chat').map().on((data) => {
+    if (!data || !data.id || !data.sig) return;
+    if (data.ctx !== state.context.id) return; // 仅摄取当前上下文
+    if (seen.has(data.id)) return;
+    saveMessage(data).then(renderMessages);
+  });
+  return true;
+}
+// 仅更新文案（切换语言时复用），不重连
+function setModeText() {
+  const badge = $('modeBadge'), hint = $('syncHint');
+  if (!badge || !hint) return;
+  if (state.syncOn) {
+    badge.textContent = t('modeDecentral');
+    hint.textContent = t('syncHintOn', (state.relayUrl || RELAY_URL));
+  } else {
+    badge.textContent = t('modeLocal');
+    hint.textContent = t('syncHintOff');
+  }
+}
+function setMode() {
+  if (state.syncOn) {
+    $('modeBadge').textContent = t('modeDecentral');
+    const ok = connectGun();
+    if (ok) $('syncHint').textContent = t('syncHintOn', (state.relayUrl || RELAY_URL));
+  } else {
+    setModeText();
+  }
+}
+
+/* ---------- 事件绑定 ---------- */
+function bindUI() {
+  appEl = document.querySelector('.app');
+  $('navToggle').addEventListener('click', () => appEl.classList.toggle('nav-open'));
+  $('overlay').addEventListener('click', () => appEl.classList.remove('nav-open'));
+  document.querySelectorAll('.lang-btn').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
+  $('howToBtn').addEventListener('click', () => { window.open('howto.html', '_blank'); });
+  $('sendBtn').addEventListener('click', sendMessage);
+  $('msgInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
+
+  $('syncToggle').checked = state.syncOn;
+  $('syncToggle').addEventListener('change', (e) => { state.syncOn = e.target.checked; saveSync(); setMode(); });
+
+  // 中继地址：可随时改成你自己的中继（需含 /gun 路径）；同步开着时改地址即重连
+  $('relayInput').value = state.relayUrl || RELAY_URL;
+  $('relayInput').addEventListener('change', (e) => {
+    state.relayUrl = (e.target.value.trim()) || RELAY_URL;
+    saveRelay();
+    if (state.syncOn) { gun = null; setMode(); }
+  });
+
+  $('joinChannelBtn').addEventListener('click', () => {
+    const v = $('newChannel').value.trim(); if (!v) return;
+    if (!state.channels.includes(v)) { state.channels.push(v); saveChannels(); renderChannelList(); }
+    $('newChannel').value = ''; switchToChannel(v);
+  });
+
+  // 手动添加好友：粘贴对方的「公钥卡片」(JSON)
+  $('addFriendBtn').addEventListener('click', async () => {
+    const card = prompt(t('pasteCard'));
+    if (!card) return;
+    try {
+      const o = JSON.parse(card.trim());
+      if (!o.addr) throw new Error('missing addr');
+      const addr = await deriveAddress(base64ToBuf(o.sign)); // 用签名公钥推导地址，保证一致
+      addFriendRaw(addr, o.sign, o.dh, o.addr);
+      alert(t('friendAdded') + shortAddr(addr));
+    } catch (err) { alert(t('addFailed') + err.message); }
+  });
+
+  $('copyPubBtn').addEventListener('click', () => {
+    navigator.clipboard.writeText(myPubCard()).then(() => alert(t('copied')));
+  });
+
+  $('exportBtn').addEventListener('click', async () => {
+    const blob = new Blob([await exportIdentity()], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'web3-identity.json'; a.click();
+    URL.revokeObjectURL(a.href);
+  });
+  $('importBtn').addEventListener('click', () => $('importFile').click());
+  $('importFile').addEventListener('change', async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    try { await importIdentity(await file.text()); renderMyPub(); renderCtxHeader(); await renderMessages(); alert(t('importOk')); }
+    catch (err) { alert(t('importFail') + err.message); }
+    e.target.value = '';
+  });
+  $('logoutBtn').addEventListener('click', async () => {
+    if (!confirm(t('logoutConfirm'))) return;
+    await idbClear('identity'); await idbClear('messages'); await idbClear('friends'); await idbClear('meta');
+    seen.clear(); location.reload();
+  });
+}
+
+/* ---------- 启动 ---------- */
+(async function init() {
+  await openDB();
+  await loadIdentity();
+  await loadMeta();
+  renderMyPub();
+  await loadFriends();
+  if (!state.channels.includes(state.context.id) && state.context.type === 'channel') state.context = { type: 'channel', id: 'global', peer: null };
+  if (state.context.type === 'dm' && (!state.context.peer || !state.friends.has(state.context.peer.address))) {
+    state.context = { type: 'channel', id: state.channels[0] || 'global', peer: null };
+  }
+  $('addrLabel').textContent = shortAddr(state.address);
+  bindUI();
+  applyI18n();
+  renderChannelList(); renderFriendList(); renderCtxHeader();
+  await renderMessages();
+  if (state.syncOn) setMode();
+})().catch((err) => {
+  console.error(err);
+  alert(t('initFail') + err.message + t('initFailTip'));
+});
