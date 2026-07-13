@@ -88,7 +88,20 @@ html, body {
 .mykey code { display: block; font-size: 10px; color: var(--muted); word-break: break-all; background: var(--panel-2); padding: 6px; border-radius: 8px; margin-bottom: 6px; }
 
 /* 聊天区 */
-.ctx-header { padding: 10px 14px; border-bottom: 1px solid #233156; font-weight: 700; color: var(--accent-2); }
+.ctx-header { padding: 10px 14px; border-bottom: 1px solid #233156; font-weight: 700; color: var(--accent-2); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#ctxTitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 私有频道勾选 */
+.chk { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin-bottom: 8px; cursor: pointer; }
+.chk input { width: auto; }
+
+/* 成员面板模态框（路线 B） */
+.modal { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; }
+.modal[hidden] { display: none; }   /* 显式作者规则覆盖 UA 的 [hidden]，避免被 display:flex 顶掉 */
+.modal-mask { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+.modal-card { position: relative; z-index: 1; width: min(420px, 92vw); max-height: 80vh; overflow: auto; background: var(--panel); border: 1px solid #2a3a63; border-radius: 14px; padding: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+.modal-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; color: var(--accent); margin-bottom: 10px; }
+.modal-body { display: flex; flex-direction: column; gap: 8px; }
+.modal-body .list { max-height: none; }
 .messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 12px; }
 .msg { background: var(--panel-2); border: 1px solid #233156; border-radius: 12px; padding: 10px 12px; max-width: 82%; align-self: flex-start; }
 .msg.mine { align-self: flex-end; background: linear-gradient(135deg, #16313a, #15233f); border-color: #1d5b52; }

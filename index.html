@@ -43,6 +43,7 @@
             <input type="text" id="newChannel" data-i18n-ph="newChannelPh" placeholder="新频道名" maxlength="24" />
             <button class="btn primary sm" id="joinChannelBtn" data-i18n="join">加入</button>
           </div>
+          <label class="chk"><input type="checkbox" id="privateChk" /> <span data-i18n="privateChk">🔒 私有（加密成员制）</span></label>
           <ul class="list" id="channelList"></ul>
         </section>
 
@@ -88,7 +89,10 @@
       </aside>
 
       <main class="main">
-        <div class="ctx-header" id="ctxHeader"># 未选择</div>
+        <div class="ctx-header" id="ctxHeader">
+          <span id="ctxTitle"># 未选择</span>
+          <button class="btn ghost sm" id="memberBtn" hidden data-i18n="memberBtn" title="查看成员 / 批准申请">👥</button>
+        </div>
         <div class="messages" id="messages"></div>
         <div class="attach-preview" id="attachPreview" hidden></div>
         <footer class="composer">
@@ -110,6 +114,15 @@
     </div>
 
     <div class="overlay" id="overlay"></div>
+
+    <!-- 路线 B：成员面板（模态框） -->
+    <div class="modal" id="memberModal" hidden>
+      <div class="modal-mask" id="memberMask"></div>
+      <div class="modal-card">
+        <div class="modal-head"><span id="memberTitle"></span><button class="btn ghost sm" id="memberClose" title="关闭">✕</button></div>
+        <div class="modal-body" id="memberBody"></div>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>

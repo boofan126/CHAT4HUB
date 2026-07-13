@@ -83,6 +83,24 @@ const I18N = {
     emojiTabSticker: '表情包',
     stickerFail: '表情包加载失败（可能离线），已退化为文字表情。',
     channelDup: (n) => '频道「' + n + '」在网络中已存在，已为你加入（不能重复创建）。',
+    privateChk: '🔒 私有（加密成员制）',
+    memberBtn: '👥 成员',
+    chanNoKey: '🔒 加密消息，需批准加入后查看',
+    applyJoin: '申请加入',
+    joinRequested: '已申请加入，等待批准…',
+    pendingReq: '待批准申请：',
+    noPending: '暂无待批准申请',
+    approve: '批准',
+    kick: '踢出',
+    roleCreator: '创建者',
+    roleApprover: '审批人',
+    notMember: '你还不是成员',
+    privateHint: '私有频道：消息端到端加密，仅被批准成员可解密。',
+    kickConfirm: (n) => '确认将「' + n + '」移出频道？将更换密钥，该成员此后无法读取新消息（历史保留）。',
+    onlyCreatorKick: '仅创建者可踢人',
+    needApproveToPost: '需被批准加入后才能发言',
+    metaLoadFail: '读取频道信息失败',
+    openChannelHint: '开放频道：任何知道名称的人都能加入并查看消息。',
   },
   en: {
     brandTitle: 'Web3 Local Chat',
@@ -152,6 +170,24 @@ const I18N = {
     emojiTabSticker: 'Stickers',
     stickerFail: 'Sticker load failed (maybe offline), fell back to text emoji.',
     channelDup: (n) => 'Channel "' + n + '" already exists on the network; joined it for you (cannot create a duplicate).',
+    privateChk: '🔒 Private (encrypted membership)',
+    memberBtn: '👥 Members',
+    chanNoKey: '🔒 Encrypted — join by approval to view',
+    applyJoin: 'Request to join',
+    joinRequested: 'Join requested, awaiting approval…',
+    pendingReq: 'Pending requests:',
+    noPending: 'No pending requests',
+    approve: 'Approve',
+    kick: 'Kick',
+    roleCreator: 'Creator',
+    roleApprover: 'Approver',
+    notMember: 'You are not a member',
+    privateHint: 'Private channel: messages are end-to-end encrypted; only approved members can read them.',
+    kickConfirm: (n) => 'Remove "' + n + '" from the channel? The key will rotate; they can no longer read new messages (history kept).',
+    onlyCreatorKick: 'Only the creator can kick',
+    needApproveToPost: 'Need approval to post',
+    metaLoadFail: 'Failed to load channel info',
+    openChannelHint: 'Open channel: anyone who knows the name can join and read messages.',
   },
   de: {
     brandTitle: 'Web3 Lokaler Chat',
@@ -217,6 +253,24 @@ const I18N = {
     emojiTabSticker: 'Sticker',
     stickerFail: 'Sticker laden fehlgeschlagen (evtl. offline), auf Text-Emoji zurückgefallen.',
     channelDup: (n) => 'Kanal "' + n + '" existiert im Netz bereits; wurde für dich beigetreten (kein Duplikat erstellen).',
+    privateChk: '🔒 Privat (verschlüsselte Mitgliedschaft)',
+    memberBtn: '👥 Mitglieder',
+    chanNoKey: '🔒 Verschlüsselt — zum Ansehen per Freigabe beitreten',
+    applyJoin: 'Beitritt anfragen',
+    joinRequested: 'Beitritt angefragt, wartet auf Freigabe…',
+    pendingReq: 'Ausstehende Anfragen:',
+    noPending: 'Keine ausstehenden Anfragen',
+    approve: 'Freigeben',
+    kick: 'Entfernen',
+    roleCreator: 'Ersteller',
+    roleApprover: 'Freigebende',
+    notMember: 'Du bist kein Mitglied',
+    privateHint: 'Privater Kanal: Nachrichten ende-zu-ende verschlüsselt, nur freigegebene Mitglieder können sie lesen.',
+    kickConfirm: (n) => '"' + n + '" aus dem Kanal entfernen? Der Schlüssel wird rotiert; diese Person kann neue Nachrichten nicht mehr lesen (Verlauf bleibt).',
+    onlyCreatorKick: 'Nur der Ersteller kann entfernen',
+    needApproveToPost: 'Zum Schreiben muss freigegeben sein',
+    metaLoadFail: 'Kanalinfos konnten nicht geladen werden',
+    openChannelHint: 'Offener Kanal: jede Person, die den Namen kennt, kann beitreten und Nachrichten lesen.',
     relayEdit: 'Relay-Adresse ändern',
     save: 'Speichern',
     cancel: 'Abbrechen',
@@ -352,6 +406,10 @@ const state = {
   context: { type: 'channel', id: 'global', peer: null },
   channels: [],
   friends: new Map(),
+  // —— 路线 B：加密成员制 ——
+  channelKeys: {},        // name -> { key: CryptoKey(AES-GCM 256), version: n }  （本机持有，不广播）
+  channelMeta: {},        // name -> { kind, creator, keyVersion, members:{}, approvers:{}, membersDh:{} }（网络明文元数据缓存）
+  channelRequests: {},    // name -> { addr: { encFrom, ts } }  （待批准申请缓存）
 };
 const seen = new Set();
 
@@ -481,6 +539,28 @@ function otherPubForDecrypt(m) {
   return (m.address === state.address) ? m.peerDhPub : m.dhPub;
 }
 
+/* ---------- 路线 B：频道对称密钥 K（AES-GCM 256，可提取） ---------- */
+// 生成一个新的频道密钥 K（用于加密 private 频道的消息/附件）
+async function generateChannelKey() {
+  return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+}
+// 把 K 导出为 raw 字节 base64（便于经 ECDH 共享密钥再加密后分发给成员）
+async function exportChannelKeyRaw(key) {
+  const buf = await crypto.subtle.exportKey('raw', key);
+  return bufToBase64(buf);
+}
+async function importChannelKeyRaw(b64) {
+  return crypto.subtle.importKey('raw', base64ToBuf(b64), { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+}
+// 判断某频道是否为私有（加密成员制）
+function channelIsPrivate(name) {
+  return !!(state.channelMeta[name] && state.channelMeta[name].kind === 'private');
+}
+// 本机是否持有某私有频道的 K（= 已是被批准成员）
+function haveChannelKey(name) {
+  return !!(state.channelKeys[name] && state.channelKeys[name].key);
+}
+
 /* 私聊房间 ID：双方地址排序后哈希，保证一致 */
 async function dmRoomId(a, b) {
   const s = [a, b].sort().join('|');
@@ -500,8 +580,22 @@ async function loadMeta() {
   LANG = (lang && I18N[lang.value]) ? lang.value : detectLang();
   const last = await idbGet('meta', 'lastCtx');
   if (last && last.value) state.context = last.value;
+  // 路线 B：恢复本机持有的私有频道密钥 K
+  const ck = await idbGet('meta', 'channelKeys');
+  if (ck && ck.value && typeof ck.value === 'object') {
+    for (const [nm, v] of Object.entries(ck.value)) {
+      try { state.channelKeys[nm] = { key: await importChannelKeyRaw(v.rawB64), version: v.version || 1 }; } catch (e) {}
+    }
+  }
 }
 async function saveChannels() { await idbPut('meta', { key: 'channels', value: state.channels }); }
+async function saveChannelKeys() {
+  const obj = {};
+  for (const [nm, v] of Object.entries(state.channelKeys)) {
+    try { obj[nm] = { rawB64: await exportChannelKeyRaw(v.key), version: v.version || 1 }; } catch (e) {}
+  }
+  await idbPut('meta', { key: 'channelKeys', value: obj });
+}
 async function saveSync() { await idbPut('meta', { key: 'syncOn', value: state.syncOn }); }
 async function saveRelay() { await idbPut('meta', { key: 'relayUrl', value: state.relayUrl }); }
 async function saveCtx() { await idbPut('meta', { key: 'lastCtx', value: state.context }); }
@@ -569,9 +663,24 @@ async function renderOne(m) {
     } catch (e) { text = t('cannotDecrypt'); }
     lockHint = '<span class="lock">' + t('e2ee') + '</span>';
   } else {
-    verified = await verifyMessage(m.pubRawB64, m.text, m.sig);
-    text = m.text;
-    file = m.file || null;
+    if (m.cipher) {   // 私有频道加密消息（enc:1）
+      verified = await verifyMessage(m.pubRawB64, m.cipher, m.sig);
+      const k = state.channelKeys[m.ctx];
+      if (k && k.key) {
+        try {
+          const bundle = JSON.parse(await decryptText(k.key, m.iv, m.cipher));
+          text = bundle.text || '';
+          file = bundle.file || null;
+        } catch (e) { text = t('cannotDecrypt'); }
+      } else {
+        text = t('chanNoKey');           // 未持 K：看不到明文
+        lockHint = '<span class="lock">🔒</span>';
+      }
+    } else {
+      verified = await verifyMessage(m.pubRawB64, m.text, m.sig);
+      text = m.text;
+      file = m.file || null;
+    }
   }
 
   const vtxt = verified ? t('verified') : t('unverified');
@@ -657,18 +766,33 @@ async function sendMessage() {
       ts: Date.now(), iv, cipher, sig,
     };
   } else {
-    const sig = await signMessage(text);
-    // 关键：不要写 file:undefined —— Gun 对 `file:undefined` 会报 "Invalid data: undefined" 并拒绝同步，
-    // 导致对方收不到（这是加附件功能后引入、且会让【纯文本消息也失效】的回归）。无附件时【完全不带 file 字段】，
-    // 以恢复「加附件前可正常互发」的状态。
-    const msgBase = {
-      id: crypto.randomUUID(), kind: 'channel', ctx: state.context.id,
-      address: state.address, pubRawB64: state.signPubB64, dhPub: state.dhPubB64,
-      nick: state.nickname,
-      ts: Date.now(), text, sig,
-    };
-    if (file) msgBase.file = file;   // 仅在有附件时挂上对象（仅供本机渲染；上链前会转成 fileJson）
-    msg = msgBase;
+    const name = state.context.id;
+    if (channelIsPrivate(name)) {
+      // 私有频道（加密成员制）：用频道密钥 K 加密 {text, file}（附件也一并加密），仅持 K 成员可解密
+      if (!haveChannelKey(name)) { alert(t('needApproveToPost')); return; }
+      const bundle = JSON.stringify({ text: text, file: file || null });
+      const { iv, cipher } = await encryptText(state.channelKeys[name].key, bundle);
+      const sig = await signMessage(cipher);            // 对密文签名
+      msg = {
+        id: crypto.randomUUID(), kind: 'channel', ctx: name, enc: 1,
+        address: state.address, pubRawB64: state.signPubB64, dhPub: state.dhPubB64,
+        nick: state.nickname,
+        ts: Date.now(), iv, cipher, sig,
+      };
+    } else {
+      const sig = await signMessage(text);
+      // 关键：不要写 file:undefined —— Gun 对 `file:undefined` 会报 "Invalid data: undefined" 并拒绝同步，
+      // 导致对方收不到（这是加附件功能后引入、且会让【纯文本消息也失效】的回归）。无附件时【完全不带 file 字段】，
+      // 以恢复「加附件前可正常互发」的状态。
+      const msgBase = {
+        id: crypto.randomUUID(), kind: 'channel', ctx: name,
+        address: state.address, pubRawB64: state.signPubB64, dhPub: state.dhPubB64,
+        nick: state.nickname,
+        ts: Date.now(), text, sig,
+      };
+      if (file) msgBase.file = file;   // 仅在有附件时挂上对象（仅供本机渲染；上链前会转成 fileJson）
+      msg = msgBase;
+    }
   }
   await saveMessage(msg);
   input.value = '';
@@ -699,11 +823,15 @@ async function switchToDM(friend) {
 function renderCtxHeader() {
   const h = $('ctxHeader');
   if (!h) return;
+  const title = $('ctxTitle');
+  const mb = $('memberBtn');
   if (state.context.type === 'dm') {
     const p = state.context.peer;
-    h.textContent = t('dmPrefix') + (p ? (p.nickname || shortAddr(p.address)) : '');
+    if (title) title.textContent = t('dmPrefix') + (p ? (p.nickname || shortAddr(p.address)) : '');
+    if (mb) mb.hidden = true;
   } else {
-    h.textContent = t('channelPrefix') + state.context.id;
+    if (title) title.textContent = (channelIsPrivate(state.context.id) ? '🔒 ' : '') + t('channelPrefix') + state.context.id;
+    if (mb) mb.hidden = false;
   }
 }
 
@@ -714,7 +842,8 @@ function renderChannelList() {
     const li = document.createElement('li');
     if (state.context.type === 'channel' && state.context.id === name) li.className = 'active';
     const canDel = name !== 'global';   // 默认频道 global 不可删
-    li.innerHTML = `<span class="nm"># ${name}</span>` + (canDel ? `<span class="del" title="${t('delChannel')}">✕</span>` : '');
+    const lock = (name !== 'global' && channelIsPrivate(name)) ? '🔒 ' : '';
+    li.innerHTML = `<span class="nm">${lock}# ${name}</span>` + (canDel ? `<span class="del" title="${t('delChannel')}">✕</span>` : '');
     li.addEventListener('click', (e) => {
       if (e.target.classList.contains('del')) { deleteChannel(name); }
       else { switchToChannel(name); }
@@ -781,6 +910,7 @@ function connectGun() {
     if (seen.has(data.id)) return;
     saveMessage(data).then(renderMessages);
   });
+  watchMeta();   // 启动私有频道元数据监听
   return true;
 }
 // 仅更新文案（切换语言时复用），不重连
@@ -807,6 +937,187 @@ function setMode() {
     setModeText();
   }
 }
+
+/* =====================================================================
+ * 路线 B：加密成员制（私有频道）
+ * - 全局频道 global 保持全开放；勾选「私有」创建的频道为加密成员制。
+ * - 创建者生成频道密钥 K（AES-GCM 256），用 ECDH 单发 K 给被批准成员。
+ * - 未持 K 者能收到密文但解不开（真不可见）。
+ * - 踢人 → 换密钥 K'，仅剩员收到 K'，被踢者失新消息权（历史保留）。
+ * - 元数据（kind/creator/members/approvers/membersDh）明文存于网络；K 绝不广播。
+ * ===================================================================== */
+// 读取某频道元数据（带 2.5s 超时兜底）
+async function getChannelMeta(name) {
+  return new Promise((resolve) => {
+    if (!gun) return resolve(null);
+    let done = false;
+    const finish = (v) => { if (done) return; done = true; clearTimeout(timer); resolve(v); };
+    const timer = setTimeout(() => finish(null), 2500);
+    gun.get('web3chat').get('chanmeta').get(name).once((data) => {
+      if (data && data.kind) finish(data); else finish(null);
+    });
+  });
+}
+const watchedChannels = new Set();
+// 对某个私有频道建立「我的密钥分发 / 入群申请」监听（幂等）
+function watchChannel(name) {
+  if (!gun || watchedChannels.has(name)) return;
+  watchedChannels.add(name);
+  // 我被批准时，审批人把 K 发到 keys/<我的地址>
+  gun.get('web3chat').get('chanmeta').get(name).get('keys').get(state.address).on((data) => {
+    if (data && data.encKey) receiveChannelKey(name, data);
+  });
+  // 入群申请（供审批人查看并批准）
+  gun.get('web3chat').get('chanmeta').get(name).get('requests').map().on((data, addr) => {
+    if (!state.channelRequests[name]) state.channelRequests[name] = {};
+    if (data && data.encFrom) state.channelRequests[name][addr] = data;
+    else if (state.channelRequests[name]) delete state.channelRequests[name][addr];
+    if (name === state.context.id) renderMemberPanel();
+  });
+}
+// 收到审批人发来的 K（ECDH 共享密钥解密）
+async function receiveChannelKey(name, data) {
+  const incomingVer = data.keyVersion || 1;
+  const cur = state.channelKeys[name];
+  if (cur && (cur.version || 1) >= incomingVer) return;   // 已有更新或同版，跳过（防止换密钥时旧 K 覆盖新 K'）
+  try {
+    const shared = await deriveAES(state.dhPriv, data.byDh);
+    const { iv, cipher } = JSON.parse(data.encKey);
+    const rawB64 = await decryptText(shared, iv, cipher);
+    const key = await importChannelKeyRaw(rawB64);
+    state.channelKeys[name] = { key, version: incomingVer };
+    await saveChannelKeys();
+    renderMessages(); renderChannelList();
+    if (name === state.context.id) renderMemberPanel();
+  } catch (e) { /* 解密失败（可能并非发给我），忽略 */ }
+}
+// 发送入群申请（含我的 ECDH 公钥，供审批人回发 K）
+function sendJoinRequest(name) {
+  if (!gun) return;
+  gun.get('web3chat').get('chanmeta').get(name).get('requests').get(state.address).put({ encFrom: state.dhPubB64, ts: Date.now() });
+  if (!state.channelRequests[name]) state.channelRequests[name] = {};
+  state.channelRequests[name][state.address] = { encFrom: state.dhPubB64, ts: Date.now() };
+  if (name === state.context.id) renderMemberPanel();
+}
+// 审批人批准：用 ECDH 把 K 加密后单发给申请人，并把其加入 members/approvers/membersDh
+async function approveRequest(name, addr, dh) {
+  const k = state.channelKeys[name];
+  if (!k) return;
+  const shared = await deriveAES(state.dhPriv, dh);
+  const rawB64 = await exportChannelKeyRaw(k.key);
+  const { iv, cipher } = await encryptText(shared, rawB64);
+  gun.get('web3chat').get('chanmeta').get(name).get('keys').get(addr).put({ encKey: JSON.stringify({ iv, cipher }), by: state.address, byDh: state.dhPubB64, keyVersion: k.version || 1 });
+  const meta = state.channelMeta[name] || {};
+  meta.members = meta.members || {}; meta.members[addr] = true;
+  meta.approvers = meta.approvers || {}; meta.approvers[addr] = true;
+  meta.membersDh = meta.membersDh || {}; meta.membersDh[addr] = dh;
+  gun.get('web3chat').get('chanmeta').get(name).put({ members: meta.members, approvers: meta.approvers, membersDh: meta.membersDh });
+  gun.get('web3chat').get('chanmeta').get(name).get('requests').get(addr).put(null);   // 清除该申请
+  if (state.channelRequests[name]) delete state.channelRequests[name][addr];
+  if (name === state.context.id) renderMemberPanel();
+}
+// 踢人（仅创建者）：换密钥 K' → 重发给剩员 → 被踢者失权
+async function kickMember(name, addr) {
+  const meta = state.channelMeta[name];
+  if (!meta || state.address !== meta.creator) { alert(t('onlyCreatorKick')); return; }
+  if (!confirm(t('kickConfirm', shortAddr(addr)))) return;
+  const k = state.channelKeys[name];
+  if (!k) return;
+  const newKey = await generateChannelKey();
+  const newVersion = (k.version || 1) + 1;
+  const members = Object.assign({}, meta.members || {});
+  const approvers = Object.assign({}, meta.approvers || {});
+  const membersDh = Object.assign({}, meta.membersDh || {});
+  delete members[addr]; delete approvers[addr]; delete membersDh[addr];
+  gun.get('web3chat').get('chanmeta').get(name).put({ members, approvers, membersDh, keyVersion: newVersion });
+  // 把 K' 重发给剩余成员
+  for (const a of Object.keys(members)) {
+    if (a === state.address) continue;
+    const dh = membersDh[a]; if (!dh) continue;
+    const shared = await deriveAES(state.dhPriv, dh);
+    const rawB64 = await exportChannelKeyRaw(newKey);
+    const { iv, cipher } = await encryptText(shared, rawB64);
+    gun.get('web3chat').get('chanmeta').get(name).get('keys').get(a).put({ encKey: JSON.stringify({ iv, cipher }), by: state.address, byDh: state.dhPubB64, keyVersion: newVersion });
+  }
+  gun.get('web3chat').get('chanmeta').get(name).get('keys').get(addr).put(null);   // 废除被踢者密钥
+  state.channelKeys[name] = { key: newKey, version: newVersion };   // 本机也升到 K'
+  await saveChannelKeys();
+  if (name === state.context.id) renderMemberPanel();
+  renderChannelList();
+}
+// 全局元数据监听：缓存所有私有频道元数据，并对我已加入的频道建立子监听
+function watchMeta() {
+  if (!gun) return;
+  gun.get('web3chat').get('chanmeta').map().on((data, name) => {
+    if (!data || !name) return;
+    state.channelMeta[name] = {
+      kind: data.kind, creator: data.creator, keyVersion: data.keyVersion,
+      members: data.members || {}, approvers: data.approvers || {}, membersDh: data.membersDh || {}
+    };
+    renderChannelList();
+    if (name === state.context.id) renderMemberPanel();
+    if (state.channels.includes(name)) watchChannel(name);
+  });
+}
+// 成员面板（模态框内容）
+function renderMemberPanel() {
+  const modal = $('memberModal'); if (!modal || modal.hidden) return;
+  const body = $('memberBody'); if (!body) return;
+  const name = state.context.id;
+  const title = $('memberTitle'); if (title) title.textContent = (channelIsPrivate(name) ? '🔒 ' : '') + t('channelPrefix') + name;
+  body.innerHTML = '';
+  if (!channelIsPrivate(name)) {
+    const info = document.createElement('div'); info.className = 'hint'; info.textContent = t('openChannelHint'); body.appendChild(info);
+    return;
+  }
+  if (!haveChannelKey(name)) {
+    const info = document.createElement('div'); info.className = 'hint'; info.textContent = t('privateHint'); body.appendChild(info);
+    const req = document.createElement('button'); req.className = 'btn primary sm'; req.textContent = t('applyJoin');
+    req.addEventListener('click', () => { sendJoinRequest(name); alert(t('joinRequested')); });
+    body.appendChild(req);
+    return;
+  }
+  const meta = state.channelMeta[name];
+  if (meta && meta.members) {
+    const ul = document.createElement('ul'); ul.className = 'list';
+    const order = Object.keys(meta.members);
+    const main = (meta.creator && meta.members[meta.creator]) ? meta.creator : (order[0] || '');
+    for (const addr of order) {
+      const li = document.createElement('li');
+      const isMe = addr === state.address;
+      const role = (addr === meta.creator) ? t('roleCreator') : (meta.approvers && meta.approvers[addr] ? t('roleApprover') : '');
+      const star = (addr === main) ? '⭐ ' : '';
+      li.innerHTML = `<span class="nm">${star}${isMe ? (state.nickname || shortAddr(addr)) : shortAddr(addr)}</span>`;
+      if (role) { const r = document.createElement('span'); r.className = 'sub'; r.textContent = role; li.appendChild(r); }
+      if (meta.creator === state.address && addr !== state.address) {
+        const k = document.createElement('span'); k.className = 'del'; k.textContent = t('kick'); k.title = t('kick');
+        k.addEventListener('click', () => kickMember(name, addr));
+        li.appendChild(k);
+      }
+      ul.appendChild(li);
+    }
+    body.appendChild(ul);
+  }
+  // 待批准申请（持 K 的审批人可见）
+  if (haveChannelKey(name) && state.channelRequests[name]) {
+    const reqs = Object.entries(state.channelRequests[name]).filter(([a, d]) => d && d.encFrom && a !== state.address);
+    if (reqs.length) {
+      const h = document.createElement('div'); h.className = 'hint'; h.textContent = t('pendingReq'); body.appendChild(h);
+      const ul = document.createElement('ul'); ul.className = 'list';
+      for (const [addr, d] of reqs) {
+        const li = document.createElement('li'); li.innerHTML = `<span class="nm">${shortAddr(addr)}</span>`;
+        const btn = document.createElement('button'); btn.className = 'btn primary sm'; btn.textContent = t('approve');
+        btn.addEventListener('click', () => approveRequest(name, addr, d.encFrom));
+        li.appendChild(btn); ul.appendChild(li);
+      }
+      body.appendChild(ul);
+    } else {
+      const h = document.createElement('div'); h.className = 'hint'; h.textContent = t('noPending'); body.appendChild(h);
+    }
+  }
+}
+function openMemberModal() { const m = $('memberModal'); if (m) { m.hidden = false; renderMemberPanel(); } }
+function closeMemberModal() { const m = $('memberModal'); if (m) m.hidden = true; }
 
 /* ---------- 表情 / 表情包选择器 ---------- */
 // Blob -> dataURL（用于把贴图图片转 base64 作为附件发送）
@@ -966,23 +1277,53 @@ function bindUI() {
   $('joinChannelBtn').addEventListener('click', async () => {
     const v = $('newChannel').value.trim(); if (!v) return;
     $('newChannel').value = '';
-    // 1) 本机查重：已存在 → 直接加入，不重复创建
-    if (state.channels.includes(v)) { switchToChannel(v); return; }
-    // 2) 全网查重（仅开启同步时）：中继上已有同名 → 视为重复频道，只能加入
+    const priv = $('privateChk') && $('privateChk').checked;
+    // 1) 本机查重：已存在 → 直接切换
+    if (state.channels.includes(v)) { switchToChannel(v); if ($('privateChk')) $('privateChk').checked = false; return; }
+    // 2) 全网查重（仅同步时）：读元数据判断 open / private
     if (state.syncOn && gun) {
       const btn = $('joinChannelBtn'); const oldTxt = btn.textContent;
       btn.disabled = true; btn.textContent = '…';
+      let meta = null; try { meta = await getChannelMeta(v); } catch (e) { meta = null; }
       let exists = false; try { exists = await channelExistsOnNetwork(v); } catch (e) { exists = false; }
       btn.disabled = false; btn.textContent = oldTxt;
-      if (exists) {
+      if (meta && meta.kind === 'private') {
+        // 既有私有频道 → 申请加入（不能重复创建）
+        if (!state.channels.includes(v)) { state.channels.push(v); saveChannels(); renderChannelList(); }
+        switchToChannel(v); watchChannel(v); sendJoinRequest(v);
+        alert(t('joinRequested'));
+        if ($('privateChk')) $('privateChk').checked = false;
+        return;
+      }
+      if (meta && meta.kind === 'open') {
+        // 既有开放频道 → 按开放加入（忽略私有勾选）
         if (!state.channels.includes(v)) { state.channels.push(v); saveChannels(); renderChannelList(); }
         switchToChannel(v);
-        alert(t('channelDup', v));
+        if ($('privateChk')) $('privateChk').checked = false;
+        return;
+      }
+      if (exists) {
+        if (!state.channels.includes(v)) { state.channels.push(v); saveChannels(); renderChannelList(); }
+        switchToChannel(v); alert(t('channelDup', v));
+        if ($('privateChk')) $('privateChk').checked = false;
         return;
       }
     }
-    // 3) 全网无同名 → 真正新建
+    // 3) 真正新建
+    if (priv) {
+      // 创建私有频道：本机生成 K，写元数据（创建者=我）
+      const k = await generateChannelKey();
+      state.channelKeys[v] = { key: k, version: 1 };
+      await saveChannelKeys();
+      const m = { kind: 'private', creator: state.address, keyVersion: 1, members: { [state.address]: true }, approvers: { [state.address]: true }, membersDh: { [state.address]: state.dhPubB64 } };
+      if (gun) {
+        gun.get('web3chat').get('chanmeta').get(v).put({ kind: m.kind, creator: m.creator, keyVersion: m.keyVersion, members: m.members, approvers: m.approvers, membersDh: m.membersDh });
+        watchChannel(v);
+      }
+      state.channelMeta[v] = m;
+    }
     state.channels.push(v); saveChannels(); renderChannelList(); switchToChannel(v);
+    if ($('privateChk')) $('privateChk').checked = false;
   });
 
   // 手动添加好友：粘贴对方的「公钥卡片」(JSON)
@@ -1023,6 +1364,11 @@ function bindUI() {
     await idbClear('identity'); await idbClear('messages'); await idbClear('friends'); await idbClear('meta');
     seen.clear(); location.reload();
   });
+
+  // 路线 B：成员面板（👥 按钮 + 模态框关闭）
+  $('memberBtn').addEventListener('click', openMemberModal);
+  $('memberClose').addEventListener('click', closeMemberModal);
+  $('memberMask').addEventListener('click', closeMemberModal);
 }
 
 /* ---------- 启动 ---------- */
