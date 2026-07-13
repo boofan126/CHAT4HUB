@@ -928,16 +928,16 @@ function bindUI() {
   $('relayInput').value = state.relayUrl || RELAY_URL;   // 值仍存于隐藏 input，供编辑时读取
   $('relayEditBtn').addEventListener('click', () => {
     $('relayInput').value = state.relayUrl || RELAY_URL;
-    $('relayEditBox').hidden = false;
+    $('relayEditBox').classList.add('open');   // 点修改才弹出（用 class 控制显隐，避免 .row 的 display:flex 覆盖 hidden 属性）
     $('relayInput').focus();
   });
   $('relayCancelBtn').addEventListener('click', () => {
-    $('relayEditBox').hidden = true;   // 取消：隐藏编辑框，不改地址
+    $('relayEditBox').classList.remove('open');   // 取消：隐藏编辑框，不改地址
   });
   $('relaySaveBtn').addEventListener('click', () => {
     const v = $('relayInput').value.trim(); if (!v) return;
     state.relayUrl = v; saveRelay();
-    $('relayEditBox').hidden = true;
+    $('relayEditBox').classList.remove('open');
     $('syncHint').textContent = t('relaySaved');
     if (state.syncOn) { gun = null; setMode(); }   // 开着同步则立即重连到新地址
   });

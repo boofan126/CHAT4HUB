@@ -140,7 +140,8 @@ html, body {
 .sync-panel .row { margin-bottom: 0; }
 .sync-panel .backup-row { gap: 6px; }
 .sync-panel .hint { display: block; line-height: 1.4; }
-.sync-panel .relay-edit { flex-wrap: wrap; }
+.sync-panel .relay-edit { display: none; flex-wrap: wrap; }
+.sync-panel .relay-edit.open { display: flex; }
 .switch { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .hint { color: var(--muted); font-size: 12px; }
 
