@@ -538,7 +538,8 @@ async function loadMeta() {
   const ch = await idbGet('meta', 'channels');
   state.channels = (ch && Array.isArray(ch.value)) ? ch.value : ['global'];
   const sync = await idbGet('meta', 'syncOn');
-  state.syncOn = !!(sync && sync.value);
+  // 默认开启去中心化同步；仅当用户曾明确关闭过（存过 false）时才保持关闭
+  state.syncOn = sync ? !!sync.value : true;
   const relay = await idbGet('meta', 'relayUrl');
   state.relayUrl = (relay && relay.value) ? relay.value : RELAY_URL;
   const lang = await idbGet('meta', 'lang');
