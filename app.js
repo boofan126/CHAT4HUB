@@ -74,6 +74,10 @@ const I18N = {
     delFriend: '删除好友',
     delChannel: '删除',
     delChannelConfirm: (n) => '确认删除频道「' + n + '」？该频道内的所有本地消息也将一并清除（不可恢复）。',
+    emojiTitle: '表情 / 表情包',
+    emojiTabEmoji: '表情',
+    emojiTabSticker: '表情包',
+    stickerFail: '表情包加载失败（可能离线），已退化为文字表情。',
   },
   en: {
     brandTitle: 'Web3 Local Chat',
@@ -134,6 +138,10 @@ const I18N = {
     delFriend: 'Remove friend',
     delChannel: 'Delete',
     delChannelConfirm: (n) => 'Delete channel "' + n + '"? All local messages in it will also be cleared (irreversible).',
+    emojiTitle: 'Emoji / Stickers',
+    emojiTabEmoji: 'Emoji',
+    emojiTabSticker: 'Stickers',
+    stickerFail: 'Sticker load failed (maybe offline), fell back to text emoji.',
   },
   de: {
     brandTitle: 'Web3 Lokaler Chat',
@@ -194,6 +202,10 @@ const I18N = {
     delFriend: 'Freund entfernen',
     delChannel: 'Löschen',
     delChannelConfirm: (n) => 'Kanal "' + n + '" löschen? Alle lokalen Nachrichten darin werden ebenfalls entfernt (nicht wiederherstellbar).',
+    emojiTitle: 'Emoji / Sticker',
+    emojiTabEmoji: 'Emoji',
+    emojiTabSticker: 'Sticker',
+    stickerFail: 'Sticker laden fehlgeschlagen (evtl. offline), auf Text-Emoji zurückgefallen.',
   },
 };
 let LANG = 'zh';
@@ -240,6 +252,31 @@ function detectLang() {
 const RELAY_URL = 'https://chat4hub-relay.onrender.com/gun';
 // 附件大小上限：原图约 1.2 MB（base64 后约 1.6 MB）。超过则拒绝发送，保护免费中继不被大文件拖垮。按需调大。
 const MAX_ATTACH_BYTES = 1.2 * 1024 * 1024;
+
+/* ---------- 表情 / 表情包（公开资源：Twemoji，MIT / CC-BY-4.0，由 jsDelivr 分发） ---------- */
+// 贴图图片基址：<code>.png 即 Twemoji 72x72 位图（联网加载，点击作为图片附件发送）
+const TWEMOJI_BASE = 'https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/72x72/';
+// 「表情」标签：常用 Unicode emoji（离线可用，点击插入输入框）
+const EMOJI_LIST = [
+  '😀','😄','😁','😆','😅','🤣','😂','🙂','😉','😊','😍','😘','😎','🤔','🤩','🥳',
+  '😜','🤪','😭','😡','🥺','😏','😬','🤗','🤤','🤐','🤨','🤝','🙏','💪','👍','👎',
+  '👏','✌️','👌','🤙','👋','✊','🤛','🤜','❤️','🧡','💛','💚','💙','💜','🖤',
+  '💔','🔥','✨','💯','⭐','🌟','💥','✅','❌','⚡','🎯','🚀','💡','📈','💰','🐶',
+  '🐱','🌈','☕','🍕','🎂','🍻','🎁','🌹','🍀','🔔','💎','🎉','👀',
+];
+// 「表情包」标签：公开 Twemoji 贴图（联网加载，[文字, Twemoji codepoint]）
+const STICKER_LIST = [
+  ['😀','1f600'],['😄','1f604'],['😁','1f601'],['😆','1f606'],['😅','1f605'],['🤣','1f923'],
+  ['😂','1f602'],['🙂','1f642'],['😉','1f609'],['😊','1f60a'],['😍','1f60d'],['😘','1f618'],
+  ['😎','1f60e'],['🤔','1f914'],['🤩','1f929'],['🥳','1f973'],['😜','1f61c'],['🤪','1f92a'],
+  ['😭','1f62d'],['😡','1f621'],['👍','1f44d'],['👎','1f44e'],['👏','1f44f'],['🙏','1f64f'],
+  ['💪','1f4aa'],['🤝','1f91d'],['❤️','2764'],['💔','1f494'],['🔥','1f525'],['✨','2728'],
+  ['🎉','1f389'],['💯','1f4af'],['🚀','1f680'],['💡','1f4a1'],['👀','1f440'],['⭐','2b50'],
+  ['🌟','1f31f'],['🐶','1f436'],['🐱','1f431'],['☕','2615'],['🍕','1f355'],['🎂','1f382'],
+  ['🍻','1f37b'],['🎁','1f381'],
+];
+// 已转成 base64 的贴图缓存（避免重复拉取）
+const stickerCache = new Map();
 
 /* ---------- 工具 ---------- */
 const $ = (id) => document.getElementById(id);
@@ -736,6 +773,67 @@ function setMode() {
   }
 }
 
+/* ---------- 表情 / 表情包选择器 ---------- */
+// Blob -> dataURL（用于把贴图图片转 base64 作为附件发送）
+function blobToDataURL(blob) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(blob); });
+}
+function openEmojiPanel() { const p = $('emojiPanel'); if (!p) return; p.hidden = false; renderEmojiGrid(); }
+function closeEmojiPanel() { const p = $('emojiPanel'); if (p) p.hidden = true; }
+function toggleEmojiPanel() { const p = $('emojiPanel'); if (!p) return; if (p.hidden) openEmojiPanel(); else closeEmojiPanel(); }
+
+function renderEmojiGrid() {
+  const g = $('emojiGrid'); if (!g || g.childElementCount) return;   // 只构建一次
+  for (const ch of EMOJI_LIST) {
+    const b = document.createElement('button');
+    b.className = 'emoji-cell'; b.type = 'button'; b.textContent = ch; b.title = ch;
+    b.addEventListener('click', () => insertEmoji(ch));
+    g.appendChild(b);
+  }
+}
+function renderStickerGrid() {
+  const g = $('stickerGrid'); if (!g || g.childElementCount) return;
+  for (const [ch, code] of STICKER_LIST) {
+    const b = document.createElement('button');
+    b.className = 'emoji-cell sticker-cell'; b.type = 'button'; b.title = ch;
+    const img = document.createElement('img'); img.alt = ch; img.loading = 'lazy';
+    img.src = TWEMOJI_BASE + code + '.png';
+    // 离线 / 加载失败 → 退化为文字 emoji（仍可发送）
+    img.onerror = () => { const s = document.createElement('span'); s.className = 'emoji-fallback'; s.textContent = ch; if (img.parentNode) img.parentNode.replaceChild(s, img); };
+    b.appendChild(img);
+    b.addEventListener('click', () => pickSticker(ch, code));
+    g.appendChild(b);
+  }
+}
+// 把表情插入输入框光标处（可连续插入，面板保持打开）
+function insertEmoji(ch) {
+  const inp = $('msgInput'); if (!inp) return;
+  const s = (inp.selectionStart != null) ? inp.selectionStart : inp.value.length;
+  const e = (inp.selectionEnd != null) ? inp.selectionEnd : inp.value.length;
+  inp.value = inp.value.slice(0, s) + ch + inp.value.slice(e);
+  const pos = s + ch.length; inp.setSelectionRange(pos, pos); inp.focus();
+}
+// 选贴图：拉取公开 Twemoji PNG → 转 base64 → 作为待发图片附件（走既有加密/同步管线）
+async function pickSticker(ch, code) {
+  let dataURL = null, size = 0;
+  if (stickerCache.has(code)) { dataURL = stickerCache.get(code); size = Math.round((dataURL.split(',')[1] || '').length * 3 / 4); }
+  else {
+    try {
+      const r = await fetch(TWEMOJI_BASE + code + '.png');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const blob = await r.blob(); size = blob.size; dataURL = await blobToDataURL(blob);
+      stickerCache.set(code, dataURL);
+    } catch (err) { /* 离线：退化为文字表情 */ }
+  }
+  if (dataURL) {
+    state.pendingFile = { name: 'sticker_' + code + '.png', type: 'image/png', size, data: dataURL };
+    renderAttachPreview();
+  } else {
+    insertEmoji(ch); alert(t('stickerFail'));
+  }
+  closeEmojiPanel();
+}
+
 /* ---------- 事件绑定 ---------- */
 function bindUI() {
   appEl = document.querySelector('.app');
@@ -745,6 +843,25 @@ function bindUI() {
   $('howToBtn').addEventListener('click', () => { window.open('howto.html', '_blank'); });
   $('sendBtn').addEventListener('click', sendMessage);
   $('msgInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
+
+  // 表情 / 表情包选择器
+  $('emojiBtn').addEventListener('click', (e) => { e.stopPropagation(); toggleEmojiPanel(); });
+  document.querySelectorAll('#emojiPanel .emoji-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('#emojiPanel .emoji-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const isEmoji = tab.dataset.tab === 'emoji';
+      $('emojiGrid').hidden = !isEmoji;
+      $('stickerGrid').hidden = isEmoji;
+      if (!isEmoji) renderStickerGrid(); else renderEmojiGrid();
+    });
+  });
+  // 点击面板外部 / 按 Esc 关闭
+  document.addEventListener('click', (e) => {
+    const p = $('emojiPanel'); if (!p || p.hidden) return;
+    if (!p.contains(e.target) && e.target.id !== 'emojiBtn') closeEmojiPanel();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeEmojiPanel(); });
 
   // 附件：选文件 → 读成 base64 → 暂存待发；超限拦截
   $('attachBtn').addEventListener('click', () => $('fileInput').click());

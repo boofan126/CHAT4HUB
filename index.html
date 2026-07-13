@@ -87,10 +87,19 @@
         <div class="messages" id="messages"></div>
         <div class="attach-preview" id="attachPreview" hidden></div>
         <footer class="composer">
+          <button class="btn ghost sm" id="emojiBtn" data-i18n-title="emojiTitle" title="表情">😊</button>
           <button class="btn ghost sm" id="attachBtn" data-i18n-title="attachTitle" title="附加文件">附件</button>
           <input type="text" id="msgInput" data-i18n-ph="msgInputPh" placeholder="输入消息，回车发送…（私聊内容将被端到端加密）" autocomplete="off" />
           <button class="btn primary" id="sendBtn" data-i18n="send">发送</button>
           <input type="file" id="fileInput" accept="*/*" hidden />
+          <div class="emoji-panel" id="emojiPanel" hidden>
+            <div class="emoji-tabs">
+              <button class="emoji-tab active" data-tab="emoji" data-i18n="emojiTabEmoji">表情</button>
+              <button class="emoji-tab" data-tab="sticker" data-i18n="emojiTabSticker">表情包</button>
+            </div>
+            <div class="emoji-grid" id="emojiGrid"></div>
+            <div class="emoji-grid sticker-grid" id="stickerGrid" hidden></div>
+          </div>
         </footer>
       </main>
     </div>
