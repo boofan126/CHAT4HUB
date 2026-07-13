@@ -231,7 +231,7 @@ function detectLang() {
 /* ---------- 中继地址（可配置） ---------- */
 // 默认指向本机自建中继；部署后请在界面「中继地址」里改成你自己的中继 URL（需含 /gun 路径）。
 // 注意：GunDB 中继是 Node 服务，免费静态托管（GitHub Pages 等）跑不了，须放能跑 Node 的环境。
-const RELAY_URL = 'http://localhost:8765/gun';
+const RELAY_URL = 'https://chat4hub-relay.onrender.com/gun';
 
 /* ---------- 工具 ---------- */
 const $ = (id) => document.getElementById(id);
