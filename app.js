@@ -654,7 +654,14 @@ async function sendMessage() {
   input.value = '';
   state.pendingFile = null; clearAttachPreview();   // 清空待发附件
   await renderMessages();
-  if (state.syncOn && gun) gun.get('web3chat').get(msg.id).put(msg);
+  if (state.syncOn && gun) {
+    // 频道附件要先转成顶层 fileJson 字符串再上链，否则 Gun 会把嵌套的 file 对象拆成图引用，
+    // 接收端（含本机重载后）拿到的是引用而非真实数据 → 显示 file(0B)。私聊的附件在加密密文里，不受影响。
+    const wire = (msg.kind === 'channel' && msg.file)
+      ? { ...msg, file: undefined, fileJson: JSON.stringify(msg.file) }
+      : msg;
+    gun.get('web3chat').get(msg.id).put(wire);
+  }
 }
 
 /* ---------- 上下文切换 ---------- */
@@ -743,6 +750,12 @@ function connectGun() {
   gun.get('web3chat').map().on((data) => {
     if (!data || !data.id || !data.sig) return;
     if (data.ctx !== state.context.id) return; // 仅摄取当前上下文
+    // 频道附件以 fileJson（顶层字符串）同步，这里还原成对象；避免 Gun 把嵌套 file 变成图引用 → 接收端显示 file(0B)
+    if (data.fileJson && !data.file) {
+      try { data.file = JSON.parse(data.fileJson); } catch (e) { data.file = null; }
+    }
+    // 旧数据若仍是 Gun 图引用（{ '#': ... }），不要用它覆盖本地好记录
+    if (data.file && typeof data.file === 'object' && data.file['#']) return;
     if (seen.has(data.id)) return;
     saveMessage(data).then(renderMessages);
   });
