@@ -40,7 +40,7 @@ const I18N = {
     send: '发送',
     syncLabel: '去中心化同步（GunDB P2P）',
     syncTitle: '同步 Sync',
-    relayPh: '中继地址，如 http://localhost:8765/gun',
+    relayPh: '中继地址（需含 /gun）',
     nickLabel: '昵称',
     nickPh: '你的昵称（本机显示，并随消息发给对方）',
     exportMsgs: '导出记录', importMsgs: '导入记录',
@@ -50,9 +50,13 @@ const I18N = {
     attachTitle: '附加文件（图片随消息发送，≤ 1.2 MB）',
     fileTooBig: '文件过大（已超过 1.2 MB 上限），请压缩后再试。',
     syncHintOff: '关闭：聊天记录仅存于本浏览器（IndexedDB）。',
-    syncHintOn: (url) => '开启：消息经中继 ' + url + ' 同步，本机仍留存全部记录（私聊为密文）。',
-    syncLive: (url) => '✅ 已连接中继 ' + url + '，联机同步中。',
-    syncDown: (url) => '⚠️ 与中继连接中断，正在自动重连… ' + url,
+    syncHintOn: '开启：消息经中继同步，本机仍留存全部记录（私聊为密文）。',
+    syncLive: '✅ 已连接中继，联机同步中。',
+    syncDown: '⚠️ 与中继连接中断，正在自动重连…',
+    relayEdit: '修改中继地址',
+    save: '保存',
+    cancel: '取消',
+    relaySaved: '中继地址已更新，正在重新连接…',
     noGun: '未加载 GunDB（可能离线），已回退纯本地模式。',
     emptyDM: '端到端加密私聊已开启，内容仅你与对方可读。',
     emptyChannel: '频道为空，发送第一条（公开签名消息）。',
@@ -105,7 +109,7 @@ const I18N = {
     send: 'Send',
     syncLabel: 'Decentralized Sync (GunDB P2P)',
     syncTitle: 'Sync',
-    relayPh: 'Relay URL, e.g. http://localhost:8765/gun',
+    relayPh: 'Relay URL (must include /gun)',
     nickLabel: 'Nickname',
     nickPh: 'Your nickname (shown locally, sent to peers with messages)',
     exportMsgs: 'Export', importMsgs: 'Import',
@@ -115,9 +119,13 @@ const I18N = {
     importMsgOk: (n) => 'Imported ' + n + ' messages.',
     importMsgFail: 'Import failed: ',
     syncHintOff: 'Off: chat records are stored only in this browser (IndexedDB).',
-    syncHintOn: (url) => 'On: messages sync via relay ' + url + '; all records still kept locally (DMs stay ciphertext).',
-    syncLive: (url) => '✅ Connected to relay ' + url + ', syncing live.',
-    syncDown: (url) => '⚠️ Relay connection lost, auto-reconnecting… ' + url,
+    syncHintOn: 'On: messages sync via relay; all records still kept locally (DMs stay ciphertext).',
+    syncLive: '✅ Connected to relay, syncing live.',
+    syncDown: '⚠️ Relay connection lost, auto-reconnecting…',
+    relayEdit: 'Edit relay address',
+    save: 'Save',
+    cancel: 'Cancel',
+    relaySaved: 'Relay address updated, reconnecting…',
     noGun: 'GunDB not loaded (maybe offline), fell back to local-only mode.',
     emptyDM: 'End-to-end encrypted DM enabled — only you and your peer can read it.',
     emptyChannel: 'Channel is empty. Send the first (public, signed) message.',
@@ -170,7 +178,7 @@ const I18N = {
     send: 'Senden',
     syncLabel: 'Dezentrale Synchronisation (GunDB P2P)',
     syncTitle: 'Sync',
-    relayPh: 'Relay-URL, z. B. http://localhost:8765/gun',
+    relayPh: 'Relay-URL (muss /gun enthalten)',
     nickLabel: 'Spitzname',
     nickPh: 'Dein Spitzname (lokal angezeigt, mit Nachrichten an Peers gesendet)',
     exportMsgs: 'Export', importMsgs: 'Import',
@@ -180,9 +188,9 @@ const I18N = {
     attachTitle: 'Datei anhängen (Bilder mit Nachricht, ≤ 1.2 MB)',
     fileTooBig: 'Datei zu groß (Limit 1.2 MB überschritten). Komprimieren und erneut versuchen.',
     syncHintOff: 'Aus: Chat-Verlauf nur in diesem Browser (IndexedDB).',
-    syncHintOn: (url) => 'Ein: Nachrichten über Relay ' + url + ' synchronisiert; lokale Kopie bleibt erhalten (DMs als Geheimtext).',
-    syncLive: (url) => '✅ Mit Relay ' + url + ' verbunden, Live-Sync aktiv.',
-    syncDown: (url) => '⚠️ Verbindung zum Relay unterbrochen, verbinde neu… ' + url,
+    syncHintOn: 'Ein: Nachrichten über Relay synchronisiert; lokale Kopie bleibt erhalten (DMs als Geheimtext).',
+    syncLive: '✅ Mit Relay verbunden, Live-Sync aktiv.',
+    syncDown: '⚠️ Verbindung zum Relay unterbrochen, verbinde neu…',
     noGun: 'GunDB nicht geladen (evtl. offline), auf lokalen Modus zurückgefallen.',
     emptyDM: 'Ende-zu-Ende-verschlüsselte DM aktiv — nur du und dein Gegenüber können sie lesen.',
     emptyChannel: 'Kanal ist leer. Sende die erste (öffentliche, signierte) Nachricht.',
@@ -209,6 +217,10 @@ const I18N = {
     emojiTabSticker: 'Sticker',
     stickerFail: 'Sticker laden fehlgeschlagen (evtl. offline), auf Text-Emoji zurückgefallen.',
     channelDup: (n) => 'Kanal "' + n + '" existiert im Netz bereits; wurde für dich beigetreten (kein Duplikat erstellen).',
+    relayEdit: 'Relay-Adresse ändern',
+    save: 'Speichern',
+    cancel: 'Abbrechen',
+    relaySaved: 'Relay-Adresse aktualisiert, verbinde neu…',
   },
 };
 let LANG = 'zh';
@@ -754,8 +766,8 @@ function connectGun() {
   gun = Gun({ peers: [url], localStorage: false, radisk: false });
   // 真实连接状态指示：连上中继 → ✅，断开 → ⚠️
   try {
-    gun.on('hi', () => { if (state.syncOn) { $('syncHint').textContent = t('syncLive', url); setConn('live', t('syncLive', url)); } });
-    gun.on('bye', () => { if (state.syncOn) { $('syncHint').textContent = t('syncDown', url); setConn('down', t('syncDown', url)); } });
+  gun.on('hi', () => { if (state.syncOn) { $('syncHint').textContent = t('syncLive'); setConn('live', t('syncLive')); } });
+  gun.on('bye', () => { if (state.syncOn) { $('syncHint').textContent = t('syncDown'); setConn('down', t('syncDown')); } });
   } catch (e) { /* 某些 Gun 版本不支持 mesh 事件，忽略 */ }
   gun.get('web3chat').map().on((data) => {
     if (!data || !data.id || !data.sig) return;
@@ -777,8 +789,8 @@ function setModeText() {
   if (!badge || !hint) return;
   if (state.syncOn) {
     badge.textContent = t('modeDecentral');
-    hint.textContent = t('syncHintOn', (state.relayUrl || RELAY_URL));
-    setConn('down', t('syncDown', (state.relayUrl || RELAY_URL)));
+    hint.textContent = t('syncHintOn');
+    setConn('down', t('syncDown'));
   } else {
     badge.textContent = t('modeLocal');
     hint.textContent = t('syncHintOff');
@@ -790,7 +802,7 @@ function setMode() {
     $('modeBadge').textContent = t('modeDecentral');
     setConn('down', '连接中…');
     const ok = connectGun();
-    if (ok) $('syncHint').textContent = t('syncHintOn', (state.relayUrl || RELAY_URL));
+    if (ok) $('syncHint').textContent = t('syncHintOn');
   } else {
     setModeText();
   }
@@ -912,8 +924,23 @@ function bindUI() {
   $('syncToggle').checked = state.syncOn;
   $('syncToggle').addEventListener('change', (e) => { state.syncOn = e.target.checked; saveSync(); setMode(); });
 
-  // 中继地址：可随时改成你自己的中继（需含 /gun 路径）；同步开着时改地址即重连
-  $('relayInput').value = state.relayUrl || RELAY_URL;
+  // 中继地址：默认隐藏具体网址，仅显示「修改中继地址」按钮；点按钮才弹出输入框
+  $('relayInput').value = state.relayUrl || RELAY_URL;   // 值仍存于隐藏 input，供编辑时读取
+  $('relayEditBtn').addEventListener('click', () => {
+    $('relayInput').value = state.relayUrl || RELAY_URL;
+    $('relayEditBox').hidden = false;
+    $('relayInput').focus();
+  });
+  $('relayCancelBtn').addEventListener('click', () => {
+    $('relayEditBox').hidden = true;   // 取消：隐藏编辑框，不改地址
+  });
+  $('relaySaveBtn').addEventListener('click', () => {
+    const v = $('relayInput').value.trim(); if (!v) return;
+    state.relayUrl = v; saveRelay();
+    $('relayEditBox').hidden = true;
+    $('syncHint').textContent = t('relaySaved');
+    if (state.syncOn) { gun = null; setMode(); }   // 开着同步则立即重连到新地址
+  });
   // 昵称：可随时修改，存本机身份并即时刷新显示
   $('nickInput').value = state.nickname || '';
   $('nickInput').addEventListener('change', async (e) => {
@@ -921,11 +948,6 @@ function bindUI() {
     await saveNickname();
     $('addrLabel').textContent = state.nickname || shortAddr(state.address);
     renderMessages();   // 让已有消息立即用新昵称显示
-  });
-  $('relayInput').addEventListener('change', (e) => {
-    state.relayUrl = (e.target.value.trim()) || RELAY_URL;
-    saveRelay();
-    if (state.syncOn) { gun = null; setMode(); }
   });
 
   // 查 Gun 中继上是否已有同名频道（别人发过该 ctx 的公开消息）。用于新建频道查重，避免重名。带 2.5s 超时兜底（中继冷启动/慢则默认允许新建，不卡用户）。

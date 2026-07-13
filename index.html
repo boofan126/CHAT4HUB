@@ -71,7 +71,12 @@
             <span data-i18n="syncLabel">去中心化同步（GunDB P2P）</span>
           </label>
           <div class="row">
-            <input type="text" id="relayInput" data-i18n-ph="relayPh" placeholder="中继地址，如 http://localhost:8765/gun" spellcheck="false" />
+            <button class="btn ghost sm" id="relayEditBtn" data-i18n="relayEdit">修改中继地址</button>
+          </div>
+          <div class="row relay-edit" id="relayEditBox" hidden>
+            <input type="text" id="relayInput" data-i18n-ph="relayPh" placeholder="中继地址（需含 /gun）" spellcheck="false" />
+            <button class="btn primary sm" id="relaySaveBtn" data-i18n="save">保存</button>
+            <button class="btn ghost sm" id="relayCancelBtn" data-i18n="cancel">取消</button>
           </div>
           <div class="row backup-row">
             <button class="btn ghost sm" id="exportMsgBtn" data-i18n-title="exportMsgsTitle" title="导出全部聊天记录（JSON）" data-i18n="exportMsgs">导出记录</button>
