@@ -17,6 +17,7 @@
         <span class="logo">◈</span>
         <span class="title" data-i18n="brandTitle">Web3 本地聊天</span>
         <span class="badge" id="modeBadge">本地模式</span>
+        <span class="conn-dot" id="connDot" title="本地模式"></span>
       </div>
       <div class="identity">
         <div class="lang-switch">
@@ -82,6 +83,11 @@
       </div>
       <div class="row">
         <input type="text" id="relayInput" data-i18n-ph="relayPh" placeholder="中继地址，如 http://localhost:8765/gun" spellcheck="false" />
+      </div>
+      <div class="row backup-row">
+        <button class="btn ghost sm" id="exportMsgBtn" data-i18n-title="exportMsgsTitle" title="导出全部聊天记录（JSON）" data-i18n="exportMsgs">导出记录</button>
+        <button class="btn ghost sm" id="importMsgBtn" data-i18n-title="importMsgsTitle" title="从备份文件导入聊天记录" data-i18n="importMsgs">导入记录</button>
+        <input type="file" id="importMsgFile" accept="application/json" hidden />
       </div>
       <span class="hint" id="syncHint">关闭：聊天记录仅存于本浏览器（IndexedDB）。</span>
     </section>

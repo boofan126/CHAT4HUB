@@ -42,6 +42,10 @@ html, body {
 .logo { color: var(--accent); font-size: 22px; }
 .title { font-weight: 700; letter-spacing: .5px; }
 .badge { font-size: 12px; background: #0e2a26; color: var(--accent); border: 1px solid #1d5b52; padding: 2px 8px; border-radius: 999px; }
+.conn-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; flex: 0 0 auto; align-self: center; transition: background .2s, box-shadow .2s; }
+.conn-dot.off { background: #555; }
+.conn-dot.down { background: #f0a020; box-shadow: 0 0 6px #f0a020; }
+.conn-dot.live { background: #2ecc71; box-shadow: 0 0 6px #2ecc71; }
 .identity { display: flex; align-items: center; gap: 8px; }
 .lang-switch { display: flex; gap: 0; border: 1px solid #2a3a63; border-radius: 8px; overflow: hidden; }
 .lang-switch .lang-btn { border: none; border-radius: 0; padding: 4px 9px; }

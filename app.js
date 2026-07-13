@@ -42,6 +42,10 @@ const I18N = {
     relayPh: '中继地址，如 http://localhost:8765/gun',
     nickLabel: '昵称',
     nickPh: '你的昵称（本机显示，并随消息发给对方）',
+    exportMsgs: '导出记录', importMsgs: '导入记录',
+    exportMsgsTitle: '导出全部聊天记录（JSON）', importMsgsTitle: '从备份文件导入聊天记录',
+    importMsgOk: (n) => '已导入 ' + n + ' 条消息。',
+    importMsgFail: '导入失败：',
     syncHintOff: '关闭：聊天记录仅存于本浏览器（IndexedDB）。',
     syncHintOn: (url) => '开启：消息经中继 ' + url + ' 同步，本机仍留存全部记录（私聊为密文）。',
     syncLive: (url) => '✅ 已连接中继 ' + url + '，联机同步中。',
@@ -95,6 +99,10 @@ const I18N = {
     relayPh: 'Relay URL, e.g. http://localhost:8765/gun',
     nickLabel: 'Nickname',
     nickPh: 'Your nickname (shown locally, sent to peers with messages)',
+    exportMsgs: 'Export', importMsgs: 'Import',
+    exportMsgsTitle: 'Export all chat history (JSON)', importMsgsTitle: 'Import chat history from a backup file',
+    importMsgOk: (n) => 'Imported ' + n + ' messages.',
+    importMsgFail: 'Import failed: ',
     syncHintOff: 'Off: chat records are stored only in this browser (IndexedDB).',
     syncHintOn: (url) => 'On: messages sync via relay ' + url + '; all records still kept locally (DMs stay ciphertext).',
     syncLive: (url) => '✅ Connected to relay ' + url + ', syncing live.',
@@ -148,6 +156,10 @@ const I18N = {
     relayPh: 'Relay-URL, z. B. http://localhost:8765/gun',
     nickLabel: 'Spitzname',
     nickPh: 'Dein Spitzname (lokal angezeigt, mit Nachrichten an Peers gesendet)',
+    exportMsgs: 'Export', importMsgs: 'Import',
+    exportMsgsTitle: 'Gesamten Chat-Verlauf exportieren (JSON)', importMsgsTitle: 'Chat-Verlauf aus Backup-Datei importieren',
+    importMsgOk: (n) => n + ' Nachrichten importiert.',
+    importMsgFail: 'Import fehlgeschlagen: ',
     syncHintOff: 'Aus: Chat-Verlauf nur in diesem Browser (IndexedDB).',
     syncHintOn: (url) => 'Ein: Nachrichten über Relay ' + url + ' synchronisiert; lokale Kopie bleibt erhalten (DMs als Geheimtext).',
     syncLive: (url) => '✅ Mit Relay ' + url + ' verbunden, Live-Sync aktiv.',
@@ -328,6 +340,33 @@ async function saveNickname() {
 async function exportIdentity() {
   const rec = await idbGet('identity', 'me');
   return JSON.stringify(rec, null, 2);
+}
+
+// 导出全部聊天记录（+ 频道列表）为 JSON 备份
+async function exportMessages() {
+  const msgs = await idbGetAll('messages');
+  const payload = { type: 'web3chat-backup', version: 1, exportedAt: Date.now(), channels: state.channels, messages: msgs };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'web3chat-backup.json'; a.click(); URL.revokeObjectURL(a.href);
+}
+// 从备份导入：按 id 合并去重，并集频道名
+async function importMessages(file) {
+  try {
+    const obj = JSON.parse(await file.text());
+    const list = Array.isArray(obj) ? obj : (obj.messages || []);
+    if (!Array.isArray(list)) throw new Error('格式不正确');
+    let n = 0;
+    for (const m of list) {
+      if (!m || !m.id || !m.sig) continue;
+      await idbPut('messages', m); n++; seen.add(m.id);
+    }
+    if (obj.channels && Array.isArray(obj.channels)) {
+      for (const c of obj.channels) if (c && !state.channels.includes(c)) state.channels.push(c);
+      await saveChannels();
+    }
+    renderChannelList(); await renderMessages();
+    alert(t('importMsgOk', n));
+  } catch (err) { alert(t('importMsgFail') + err.message); }
 }
 
 // 「公钥卡片」：把地址 + 签名公钥 + 加密公钥打包，方便好友一键添加
@@ -591,14 +630,20 @@ function renderMyPub() { $('myPub').textContent = state.dhPubB64; } // 展示加
 let gun = null;
 let appEl = null;           // 移动端抽屉控制
 function closeNav() { if (appEl) appEl.classList.remove('nav-open'); }
+// 顶栏连接状态点：off(灰)/down(橙=连接中·断开)/live(绿=已连)
+function setConn(cls, title) {
+  const d = $('connDot'); if (!d) return;
+  d.className = 'conn-dot ' + (cls || '');
+  d.title = title || '';
+}
 function connectGun() {
-  if (typeof Gun === 'undefined') { $('syncHint').textContent = t('noGun'); return false; }
+  if (typeof Gun === 'undefined') { $('syncHint').textContent = t('noGun'); setConn('off', t('noGun')); return false; }
   const url = (state.relayUrl || RELAY_URL).trim();
   gun = Gun({ peers: [url], localStorage: false, radisk: false });
   // 真实连接状态指示：连上中继 → ✅，断开 → ⚠️
   try {
-    gun.on('hi', () => { if (state.syncOn) $('syncHint').textContent = t('syncLive', url); });
-    gun.on('bye', () => { if (state.syncOn) $('syncHint').textContent = t('syncDown', url); });
+    gun.on('hi', () => { if (state.syncOn) { $('syncHint').textContent = t('syncLive', url); setConn('live', t('syncLive', url)); } });
+    gun.on('bye', () => { if (state.syncOn) { $('syncHint').textContent = t('syncDown', url); setConn('down', t('syncDown', url)); } });
   } catch (e) { /* 某些 Gun 版本不支持 mesh 事件，忽略 */ }
   gun.get('web3chat').map().on((data) => {
     if (!data || !data.id || !data.sig) return;
@@ -615,14 +660,17 @@ function setModeText() {
   if (state.syncOn) {
     badge.textContent = t('modeDecentral');
     hint.textContent = t('syncHintOn', (state.relayUrl || RELAY_URL));
+    setConn('down', t('syncDown', (state.relayUrl || RELAY_URL)));
   } else {
     badge.textContent = t('modeLocal');
     hint.textContent = t('syncHintOff');
+    setConn('off', t('modeLocal'));
   }
 }
 function setMode() {
   if (state.syncOn) {
     $('modeBadge').textContent = t('modeDecentral');
+    setConn('down', '连接中…');
     const ok = connectGun();
     if (ok) $('syncHint').textContent = t('syncHintOn', (state.relayUrl || RELAY_URL));
   } else {
@@ -687,6 +735,10 @@ function bindUI() {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'web3-identity.json'; a.click();
     URL.revokeObjectURL(a.href);
   });
+  // 聊天记录备份：导出 / 导入
+  $('exportMsgBtn').addEventListener('click', exportMessages);
+  $('importMsgBtn').addEventListener('click', () => $('importMsgFile').click());
+  $('importMsgFile').addEventListener('change', async (e) => { const f = e.target.files[0]; if (!f) return; await importMessages(f); e.target.value = ''; });
   $('importBtn').addEventListener('click', () => $('importFile').click());
   $('importFile').addEventListener('change', async (e) => {
     const file = e.target.files[0]; if (!file) return;

@@ -112,4 +112,24 @@ A: Pure-local mode best fits "records stay only local". After enabling GunDB syn
 
 ---
 
+---
+
+## 9. Chat history backup (export / import)
+
+The settings area now has two buttons: "**Export**" and "**Import**".
+
+- **Export**: packs all your chat messages (plus the channel list) into a `web3chat-backup.json` file downloaded locally. Back up important conversations regularly.
+- **Import**: pick a backup file; messages merge by id (no duplicates), and new channel names are added automatically. Use it to recover history after switching devices or clearing cache — only if you exported before.
+
+> ⚠️ Chat-history backup and "Export identity" are **two different things**: identity backup saves your keys/address, history backup saves the messages. Save both.
+
+---
+
+## 10. Nickname & connection status
+
+- **Nickname**: the "Nickname" box in settings lets you set a display name (max 20 chars). It's stored in your local identity and sent to peers with your messages, so they see this name. After switching devices, importing your identity keeps the nickname too.
+- **Connection dot**: next to the "Local / Decentralized" badge in the top bar is a small dot — **gray = pure local**, **orange = connecting or relay dropped (auto-reconnecting)**, **green = connected to relay, live sync**. You can tell the sync state at a glance.
+
+---
+
 *To deploy this chat app yourself (so others can open it and talk with you), see `README.md` in the repo.*
