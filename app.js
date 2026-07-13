@@ -833,6 +833,7 @@ async function sendMessage() {
 /* ---------- 上下文切换 ---------- */
 function switchToChannel(name) {
   state.context = { type: 'channel', id: name, peer: null };
+  if (gun) watchChannelMeta(name);
   saveCtx(); renderCtxHeader(); renderChannelList(); renderMessages(); closeNav();
 }
 async function switchToDM(friend) {
@@ -1028,12 +1029,16 @@ async function approveRequest(name, addr, dh) {
   const rawB64 = await exportChannelKeyRaw(k.key);
   const { iv, cipher } = await encryptText(shared, rawB64);
   gun.get('web3chat').get('chanmeta').get(name).get('keys').get(addr).put({ encKey: JSON.stringify({ iv, cipher }), by: state.address, byDh: state.dhPubB64, keyVersion: k.version || 1 });
+  // 子节点单键写入：让 Gun 正确合并、所有监听者即时更新（避免整体 put 覆盖丢成员）
+  const base = gun.get('web3chat').get('chanmeta').get(name);
+  base.get('members').get(addr).put(true);
+  base.get('approvers').get(addr).put(true);
+  base.get('membersDh').get(addr).put(dh);
   const meta = state.channelMeta[name] || {};
   meta.members = meta.members || {}; meta.members[addr] = true;
   meta.approvers = meta.approvers || {}; meta.approvers[addr] = true;
   meta.membersDh = meta.membersDh || {}; meta.membersDh[addr] = dh;
-  gun.get('web3chat').get('chanmeta').get(name).put({ members: meta.members, approvers: meta.approvers, membersDh: meta.membersDh });
-  await saveChannelMeta();
+  state.channelMeta[name] = meta; await saveChannelMeta();
   gun.get('web3chat').get('chanmeta').get(name).get('requests').get(addr).put(null);   // 清除该申请
   if (state.channelRequests[name]) delete state.channelRequests[name][addr];
   if (name === state.context.id) { renderMemberPanel(); updateMemberBadge(); }
@@ -1050,9 +1055,15 @@ async function kickMember(name, addr) {
   const members = Object.assign({}, meta.members || {});
   const approvers = Object.assign({}, meta.approvers || {});
   const membersDh = Object.assign({}, meta.membersDh || {});
+  const base = gun.get('web3chat').get('chanmeta').get(name);
+  base.get('keyVersion').put(newVersion);
+  base.get('members').get(addr).put(null);
+  base.get('approvers').get(addr).put(null);
+  base.get('membersDh').get(addr).put(null);
   delete members[addr]; delete approvers[addr]; delete membersDh[addr];
-  gun.get('web3chat').get('chanmeta').get(name).put({ members, approvers, membersDh, keyVersion: newVersion });
-  await saveChannelMeta();
+  const m = state.channelMeta[name] || {};
+  m.members = members; m.approvers = approvers; m.membersDh = membersDh; m.keyVersion = newVersion;
+  state.channelMeta[name] = m; await saveChannelMeta();
   // 把 K' 重发给剩余成员
   for (const a of Object.keys(members)) {
     if (a === state.address) continue;
@@ -1068,19 +1079,50 @@ async function kickMember(name, addr) {
   if (name === state.context.id) renderMemberPanel();
   renderChannelList();
 }
-// 全局元数据监听：缓存所有私有频道元数据，并对我已加入的频道建立子监听
+const watchedMeta = new Set();
+// 对单个频道订阅「元数据子节点」（members/approvers/membersDh）——
+// 用 .map().on() 逐键投递，规避「父节点 .on 把 members 当成 soul 引用而非展开对象」导致成员列表为空/乱码的坑。
+function watchChannelMeta(name) {
+  if (!gun || watchedMeta.has(name)) return;
+  watchedMeta.add(name);
+  const root = gun.get('web3chat').get('chanmeta').get(name);
+  root.on((data) => {
+    if (!data) return;
+    const m = state.channelMeta[name] || {};
+    m.kind = data.kind; m.creator = data.creator; m.keyVersion = data.keyVersion;
+    state.channelMeta[name] = m; saveChannelMeta();
+    renderChannelList();
+    if (name === state.context.id) renderMemberPanel();
+  });
+  const sub = (field, bag) => {
+    root.get(field).map().on((val, addr) => {
+      if (!addr) return;
+      const m = state.channelMeta[name] || {};
+      m[bag] = m[bag] || {};
+      if (val === null || val === undefined) delete m[bag][addr];
+      else m[bag][addr] = (bag === 'membersDh') ? val : true;
+      state.channelMeta[name] = m; saveChannelMeta();
+      if (name === state.context.id) renderMemberPanel();
+    });
+  };
+  sub('members', 'members');
+  sub('approvers', 'approvers');
+  sub('membersDh', 'membersDh');
+}
+// 全局元数据监听：发现频道即建立子节点监听（members 等逐键投递，可靠）
 function watchMeta() {
   if (!gun) return;
   gun.get('web3chat').get('chanmeta').map().on((data, name) => {
     if (!data || !name) return;
-    state.channelMeta[name] = {
-      kind: data.kind, creator: data.creator, keyVersion: data.keyVersion,
-      members: data.members || {}, approvers: data.approvers || {}, membersDh: data.membersDh || {}
-    };
+    if (!state.channelMeta[name]) state.channelMeta[name] = {};
+    state.channelMeta[name].kind = data.kind;
+    state.channelMeta[name].creator = data.creator;
+    state.channelMeta[name].keyVersion = data.keyVersion;
     saveChannelMeta();
     renderChannelList();
-    if (name === state.context.id) renderMemberPanel();
+    watchChannelMeta(name);
     if (state.channels.includes(name)) watchChannel(name);
+    if (name === state.context.id) renderMemberPanel();
   });
 }
 // 成员面板（模态框内容）
@@ -1114,9 +1156,9 @@ function renderMemberPanel() {
   }
   const meta = state.channelMeta[name];
   if (meta && meta.members) {
-    const head = document.createElement('div'); head.className = 'list-head'; head.textContent = t('memberList', Object.keys(meta.members).length); body.appendChild(head);
+    const order = Object.keys(meta.members).filter(a => a !== '#' && meta.members[a] === true);
+    const head = document.createElement('div'); head.className = 'list-head'; head.textContent = t('memberList', order.length); body.appendChild(head);
     const ul = document.createElement('ul'); ul.className = 'list';
-    const order = Object.keys(meta.members);
     const main = (meta.creator && meta.members[meta.creator]) ? meta.creator : (order[0] || '');
     for (const addr of order) {
       const li = document.createElement('li');
@@ -1353,8 +1395,14 @@ function bindUI() {
       await saveChannelKeys();
       const m = { kind: 'private', creator: state.address, keyVersion: 1, members: { [state.address]: true }, approvers: { [state.address]: true }, membersDh: { [state.address]: state.dhPubB64 } };
       if (gun) {
-        gun.get('web3chat').get('chanmeta').get(v).put({ kind: m.kind, creator: m.creator, keyVersion: m.keyVersion, members: m.members, approvers: m.approvers, membersDh: m.membersDh });
-        watchChannel(v);
+        const base = gun.get('web3chat').get('chanmeta').get(v);
+        base.get('kind').put('private');
+        base.get('creator').put(state.address);
+        base.get('keyVersion').put(1);
+        base.get('members').get(state.address).put(true);
+        base.get('approvers').get(state.address).put(true);
+        base.get('membersDh').get(state.address).put(state.dhPubB64);
+        watchChannel(v); watchChannelMeta(v);
       }
       state.channelMeta[v] = m;
       await saveChannelMeta();
