@@ -134,3 +134,16 @@ A: As long as you don't clear browser cache/local storage, don't switch devices 
 
 **Q: Is this truly "decentralized"?**
 A: Pure-local mode best fits "records stay only local". After enabling GunDB sync, messages are relayed across nodes via P2P — that's the real decentralized part. Both modes stay under your control.
+
+---
+
+## 8. Anonymous analytics (privacy notice)
+
+SibyX uses **cookieless anonymous analytics** to understand traffic — without compromising its "privacy-first / zero-collection" promise:
+
+- **No cookies, no localStorage, no device fingerprinting**;
+- Your IP is hashed server-side via `HMAC-SHA256` with a **per-day salt** and truncated — **irreversible and not linkable across days**;
+- Only the referring **domain** (not the full URL), campaign tags (e.g. `?ref=reddit`), and country-level aggregates are recorded;
+- All data is **aggregated only** — no individual tracking.
+
+> This keeps the promise "your key is yourself, we collect nothing" intact: at the analytics level we can't see *who* you are, only *roughly how many people visited today and from which channels*.

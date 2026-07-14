@@ -216,5 +216,23 @@
   </div>
 
   <script src="app.js"></script>
+  <!-- SibyX 匿名访问统计 beacon（cookieless：不写 cookie/localStorage，IP 由服务端哈希截断） -->
+  <script>
+  (function(){
+    try{
+      var RELAY_BASE = 'https://chat4hub-relay.onrender.com'; // 生产中继（与 app.js RELAY_URL 一致，去 /gun）
+      var p = new URLSearchParams(location.search);
+      var camp = p.get('ref') || p.get('utm_source') || 'direct';
+      var ref = 'direct';
+      try { if (location.referrer) ref = new URL(location.referrer).host; } catch(e){}
+      var payload = JSON.stringify({ path: location.pathname || '/', ref: ref, camp: camp });
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(RELAY_BASE + '/track', new Blob([payload], { type: 'text/plain' }));
+      } else {
+        fetch(RELAY_BASE + '/track', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: payload, mode: 'no-cors' }).catch(function(){});
+      }
+    }catch(e){}
+  })();
+  </script>
 </body>
 </html>
