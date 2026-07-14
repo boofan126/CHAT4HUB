@@ -88,6 +88,8 @@ const I18N = {
     delFriend: '删除好友',
     delChannel: '删除',
     delChannelConfirm: (n) => '确认删除频道「' + n + '」？该频道内的所有本地消息也将一并清除（不可恢复）。',
+    delMsg: '删除',
+    delMsgConfirm: '确认删除这条消息？删除后对所有人生效（仅能删除你自己发的消息，不可恢复）。',
     emojiTitle: '表情 / 表情包',
     emojiTabEmoji: '表情',
     emojiTabSticker: '表情包',
@@ -200,6 +202,8 @@ const I18N = {
     delFriend: 'Remove friend',
     delChannel: 'Delete',
     delChannelConfirm: (n) => 'Delete channel "' + n + '"? All local messages in it will also be cleared (irreversible).',
+    delMsg: 'Delete',
+    delMsgConfirm: 'Delete this message? Removed for everyone (only your own messages; irreversible).',
     emojiTitle: 'Emoji / Stickers',
     emojiTabEmoji: 'Emoji',
     emojiTabSticker: 'Stickers',
@@ -670,6 +674,7 @@ async function renderOne(m) {
   // 非本人且在频道里 → 提供「加好友」（附带其签名公钥 + 加密公钥）
   const canAdd = !mine && m.kind === 'channel' && m.pubRawB64 && m.dhPub && !state.friends.has(m.address);
   const addBtn = canAdd ? `<span class="add" data-addr="${m.address}" data-sign="${m.pubRawB64}" data-dh="${m.dhPub}">${t('addFriendBtn')}</span>` : '';
+  const delBtn = mine ? `<span class="del" data-id="${m.id}" title="${t('delMsg')}">✕</span>` : '';
 
   el.innerHTML = `
     <div class="meta">
@@ -678,6 +683,7 @@ async function renderOne(m) {
       <span class="${vcls}">${vtxt}</span>
       <span>${time}</span>
       ${addBtn}
+      ${delBtn}
     </div>
     <div class="body"></div>`;
   const body = el.querySelector('.body');
@@ -685,7 +691,37 @@ async function renderOne(m) {
   if (file) body.appendChild(buildAttachment(file)); // 附件用 DOM 构建，防 XSS
   const ab = el.querySelector('.add');
   if (ab) ab.addEventListener('click', () => addFriendRaw(ab.dataset.addr, ab.dataset.sign, ab.dataset.dh));
+  const db = el.querySelector('.del');
+  if (db) db.addEventListener('click', () => deleteMessage(db.dataset.id));
   return el;
+}
+
+// 删除自己发的单条消息：本地立即隐藏 + 广播带签名的删除事件（防他人伪造删除）
+async function deleteMessage(id) {
+  if (!id) return;
+  if (!confirm(t('delMsgConfirm'))) return;
+  await idbDelete('messages', id);
+  renderMessages();
+  if (typeof gun !== 'undefined' && gun && state.syncOn) {
+    try {
+      const sig = await signMessage(id + '|' + state.address);
+      gun.get('web3chat').get('del').get(id).put({
+        id: id, by: state.address, signPub: state.signPubB64, sig: sig, ts: Date.now()
+      });
+    } catch (e) { /* 广播失败不影响本地删除 */ }
+  }
+}
+// 接收他人广播的删除事件：验签 + 仅当被删消息确为该发送者本人所发才删本地
+async function handleDelete(data) {
+  if (!data || !data.id || !data.by || !data.sig || !data.signPub) return;
+  const ok = await verifyMessage(data.signPub, data.id + '|' + data.by, data.sig);
+  if (!ok) return; // 签名不过 = 伪造，忽略
+  const all = await idbGetAll('messages');
+  const m = all.find(x => x.id === data.id);
+  if (m && m.address === data.by) {   // 只能删对方自己发的消息
+    await idbDelete('messages', data.id);
+    if (state.context.id) renderMessages();
+  }
 }
 
 // 用 DOM API 构建附件元素（文件名/数据均以属性或 textContent 设置，绝不经 innerHTML 注入）
@@ -937,6 +973,7 @@ function connectGun() {
     if (seen.has(data.id)) return;
     saveMessage(data).then(renderMessages);
   });
+  gun.get('web3chat').get('del').map().on((data) => { handleDelete(data); });
   watchMeta();   // 启动私有频道元数据监听
   return true;
 }
