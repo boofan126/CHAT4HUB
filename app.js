@@ -396,7 +396,8 @@ const state = {
   addrNick: {},           // address -> 最近一次使用的昵称（从消息/申请里收集，用于成员列表展示）
   listExpanded: { channels: false, friends: false },  // 列表是否展开全部（默认仅前5）
   panelCollapsed: { channels: false, friends: false }, // 频道/好友面板是否整体折叠
-  _gunConnected: false,   // 防重入：connectGun 是否已执行（避免多实例 + 监听器堆积）
+  _gunConnected: false,   // 已连接标记：connectGun 是否已建好 gun 实例
+  _relayUrl: '',          // 上次 connectGun 实际连接的中继地址（用于判断是否需重建）
   _sending: false,        // 发送锁：防止 sendMessage 并发重复调用（Enter+click 同时触发等）
 };
 const seen = new Set();
@@ -1003,12 +1004,14 @@ function setConn(cls, title) {
 }
 function connectGun() {
   if (typeof Gun === 'undefined') { $('syncHint').textContent = t('noGun'); setConn('off', t('noGun')); return false; }
-  // 防重入：若已有 gun 实例在跑，先离线再重建（避免多实例 + .map().on 监听器堆积 → 消息重复处理）
-  if (gun && state._gunConnected) {
-    try { gun.off(); } catch(e) {}   // Gun 实例级 off（移除所有本地监听）
-    try { gun = null; } catch(e) {}
-  }
   const url = (state.relayUrl || RELAY_URL).trim();
+  // 已连接且中继地址未变 → 直接复用，不重建。
+  // 注意：绝不要调用 gun.off() —— Gun 同页面多个实例共享全局 hub/peer 连接，
+  // off() 会拆除中继 peer，导致新建实例复用到已死的 hub，.map().on 只能回放本机数据、收不到他人消息。
+  if (gun && state._gunConnected && state._relayUrl === url) return true;
+  state._relayUrl = url;
+  // 中继地址变更时只重建实例（不 off 旧实例，旧监听器由 seen 去重集合兜底，不会重复落库）；
+  // 新实例会复用 Gun 共享 hub 上已有的中继连接，天然保持在线。
   gun = Gun({ peers: [url], localStorage: false, radisk: false });
   state._gunConnected = true;
   // 真实连接状态指示：连上中继 → ✅，断开 → ⚠️
