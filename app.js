@@ -670,7 +670,9 @@ async function saveMessage(msg) {
   // 写入前先查是否已存在同 id，存在则跳过，避免重复记录。
   const all = await idbGetAll('messages');
   if (all.some(m => m && m.id === msg.id)) { seen.add(msg.id); return; }
+  console.log('[SibyX save] PUT id=', (msg.id||'').slice(0,12), 'ctx=', msg.ctx, 'addr=', (msg.address||'').slice(0,8), 'text=', (msg.text||'').slice(0,30));
   await idbPut('messages', msg);
+  console.log('[SibyX save] DONE id=', (msg.id||'').slice(0,12), '→ IDB 总记录数=' + (await idbGetAll('messages')).length);
   seen.add(msg.id);
 }
 async function localMessagesForCtx(ctx) {
@@ -713,6 +715,15 @@ async function renderMessages() {
   let collided = new Set();
   if (state.context.type !== 'dm') collided = await collisionNicks(state.context.id);
   if (list.length === 0) {
+    // 🔍 关键诊断：IDB 全量 dump，对比实际存储的 ctx vs 查询用的 ctx
+    try {
+      const allRaw = await idbGetAll('messages');
+      console.log('[SibyX render] ⚠️ list=0 但 IDB 共', allRaw.length, '条记录');
+      console.log('[SibyX render] 所有消息的 ctx 列表:', allRaw.map(m => ({id:(m.id||'').slice(0,8), ctx:m.ctx, addr:(m.address||'').slice(0,6), text:(m.text||'').slice(0,20)})));
+      // 额外检查：是否有 ctx 完全不匹配的情况
+      const matched = allRaw.filter(m => m.ctx === state.context.id);
+      console.log('[SibyX render] 其中 ctx 匹配 "', state.context.id, '" 的有', matched.length, '条');
+    } catch(e) { console.error('[SibyX render] IDB dump error:', e); }
     const e = document.createElement('div'); e.className = 'empty';
     e.textContent = state.context.type === 'dm' ? t('emptyDM') : t('emptyChannel');
     box.appendChild(e); await renderNickWarn(collided); return;
