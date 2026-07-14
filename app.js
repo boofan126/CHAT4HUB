@@ -706,6 +706,8 @@ function debounceRender() {
 async function renderMessages() {
   const box = $('messages');
   const list = await localMessagesForCtx(state.context.id);
+  console.log('[SibyX render] START ctx=', state.context.id, 'box=', !!box, 'list.length=', list.length);
+  if (!box) { console.error('[SibyX render] FATAL: #messages element not found!'); return; }
   box.innerHTML = '';
   // 本频道冲突昵称集合（仅频道上下文查重；DM 一对一不查）
   let collided = new Set();
@@ -715,7 +717,9 @@ async function renderMessages() {
     e.textContent = state.context.type === 'dm' ? t('emptyDM') : t('emptyChannel');
     box.appendChild(e); await renderNickWarn(collided); return;
   }
-  for (const m of list) box.appendChild(await renderOne(m, collided));
+  let rendered = 0;
+  for (const m of list) { try { box.appendChild(await renderOne(m, collided)); rendered++; } catch (err) { console.error('[SibyX] renderOne error id=', m.id?.slice(0,12), err); } }
+  console.log('[SibyX render] DONE rendered=', rendered, '/', list.length, 'box.childCount=', box.children.length);
   box.scrollTop = box.scrollHeight;
   await renderNickWarn(collided);
 }
