@@ -72,7 +72,9 @@ const I18N = {
     diagId: '本机身份短码',
     diagRemote: '最近收到他人消息',
     diagNever: '从未',
-    diagNote: '在两台「设备」上对比：此行若【相同】说明是同一浏览器/身份（自然只看到「自己」）；若【不同】且一直显示「从未」，才是真·收不到。',
+    diagCount: '收到条数',
+    diagLastText: '最后消息预览',
+    diagNote: '在两台「设备」上对比：此行若【相同】说明是同一浏览器/身份（自然只看到「自己」）；若【不同】且一直显示「从未」，才是真·收不到。打开 F12 Console 可看 [SibyX recv] 日志定位断点。',
     emptyDM: '端到端加密私聊已开启，内容仅你与对方可读。',
     emptyChannel: '频道为空，发送第一条（公开签名消息）。',
     verified: '✓ 已验证', unverified: '✗ 验签失败',
@@ -191,7 +193,9 @@ const I18N = {
     diagId: 'This device identity',
     diagRemote: 'Last message from others',
     diagNever: 'never',
-    diagNote: 'Compare on two "devices": if these are the SAME, it is the same browser/identity (so you only ever see "yourself"). If DIFFERENT yet this stays "never", that is a real receive failure.',
+    diagCount: 'Received count',
+    diagLastText: 'Last msg preview',
+    diagNote: 'Compare on two "devices": if these are the SAME, it is the same browser/identity (so you only ever see "yourself"). If DIFFERENT yet this stays "never", that is a real receive failure. Open F12 Console for [SibyX recv] debug logs.',
     emptyDM: 'End-to-end encrypted DM enabled — only you and your peer can read it.',
     emptyChannel: 'Channel is empty. Send the first (public, signed) message.',
     verified: '✓ Verified', unverified: '✗ Verify failed',
@@ -351,6 +355,9 @@ function updateDiag() {
       rEl.className = 'diag-v ok';
     }
   }
+  // 新增：收到条数 + 最后消息预览
+  const cEl = $('diagCount'); if (cEl) cEl.textContent = String(_recvCount);
+  const tEl = $('diagLastText'); if (tEl) tEl.textContent = _lastRemoteText || '-';
 }
 
 /* ---------- IndexedDB ---------- */
@@ -1040,6 +1047,8 @@ function setConn(cls, title) {
 let _kaTimer = null;    // 保活 ping 定时器
 let _kaPingFail = 0;    // 连续 ping 失败次数
 let _lastRemoteTs = 0;   // 最近一次「收到他人消息」时间戳 —— 佐证中继活着
+let _recvCount = 0;      // 本次会话收到的他人消息总数
+let _lastRemoteText = '';// 最近一条他人消息的文本预览
 // 解析中继地址：支持逗号/空格/分号分隔的多个地址；每个规范为以 /gun 结尾
 function parseRelays(str) {
   return String(str || '')
@@ -1105,10 +1114,12 @@ function connectGun() {
     }
     // 旧数据若仍是 Gun 图引用（{ '#': ... }），不要用它覆盖本地好记录
     if (data.file && typeof data.file === 'object' && data.file['#']) return;
-    if (data.address && data.address !== state.address) { _lastRemoteTs = Date.now(); updateDiag(); }  // 收到他人消息 = 铁证中继活着
-    if (seen.has(data.id)) return;
+    const isRemote = data.address && data.address !== state.address;
+    if (isRemote) { _lastRemoteTs = Date.now(); _recvCount++; _lastRemoteText = (data.text || '(加密/无文本)').slice(0, 30); updateDiag(); }  // 收到他人消息 = 铁证中继活着
+    if (seen.has(data.id)) { console.log('[SibyX recv] DROP(已处理) id=', data.id.slice(0,12), 'ctx=', data.ctx, 'remote=', !!isRemote); return; }
     seen.add(data.id);   // 同步登记，消除 Gun .map().on 解析期多次回调同一条消息的竞态
-    saveMessage(data).then(renderMessages);
+    console.log('[SibyX recv] OK id=', data.id.slice(0,12), 'ctx=', data.ctx, 'text=', (data.text||'').slice(0,40), 'remote=', !!isRemote, 'addr=', (data.address||'').slice(0,8));
+    saveMessage(data).then(() => { console.log('[SibyX recv] SAVED+RENDER id=', data.id.slice(0,12)); return renderMessages(); }).catch(err => { console.error('[SibyX recv] SAVE FAIL id=', data.id.slice(0,12), err); });
   });
   gun.get('web3chat').get('del').map().on((data) => { handleDelete(data); });
   watchMeta();   // 启动私有频道元数据监听
