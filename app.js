@@ -69,6 +69,10 @@ const I18N = {
     cancel: '取消',
     relaySaved: '中继地址已更新，正在重新连接…',
     noGun: '未加载 GunDB（可能离线），已回退纯本地模式。',
+    diagId: '本机身份短码',
+    diagRemote: '最近收到他人消息',
+    diagNever: '从未',
+    diagNote: '在两台「设备」上对比：此行若【相同】说明是同一浏览器/身份（自然只看到「自己」）；若【不同】且一直显示「从未」，才是真·收不到。',
     emptyDM: '端到端加密私聊已开启，内容仅你与对方可读。',
     emptyChannel: '频道为空，发送第一条（公开签名消息）。',
     verified: '✓ 已验证', unverified: '✗ 验签失败',
@@ -184,6 +188,10 @@ const I18N = {
     cancel: 'Cancel',
     relaySaved: 'Relay address updated, reconnecting…',
     noGun: 'GunDB not loaded (maybe offline), fell back to local-only mode.',
+    diagId: 'This device identity',
+    diagRemote: 'Last message from others',
+    diagNever: 'never',
+    diagNote: 'Compare on two "devices": if these are the SAME, it is the same browser/identity (so you only ever see "yourself"). If DIFFERENT yet this stays "never", that is a real receive failure.',
     emptyDM: 'End-to-end encrypted DM enabled — only you and your peer can read it.',
     emptyChannel: 'Channel is empty. Send the first (public, signed) message.',
     verified: '✓ Verified', unverified: '✗ Verify failed',
@@ -260,6 +268,7 @@ function applyI18n() {
   document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === LANG));
   // 动态区域重渲染
   if (state.address) { $('addrLabel').textContent = shortAddr(state.address); }
+  updateDiag();   // 刷新诊断（含本机身份短码 + 最近收到他人消息）
   renderCtxHeader();
   setModeText();
   renderChannelList();   // 刷新动态文案（删除按钮标题等）
@@ -323,6 +332,26 @@ const dec = new TextDecoder();
 function bufToBase64(buf) { const b = new Uint8Array(buf); let s = ''; for (const x of b) s += String.fromCharCode(x); return btoa(s); }
 function base64ToBuf(b64) { const s = atob(b64); const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b.buffer; }
 function shortAddr(a) { return a ? a.slice(0, 6) + '…' + a.slice(-4) : ''; }
+
+// —— 自诊断指示器 ——
+// 目的：让用户在两台「设备」上一眼确认问题根源：
+//   1) 本机身份短码是否【不同】（相同 = 同一浏览器/身份，自然只看到「自己」发的）
+//   2) 是否真的收到过他人消息（_lastRemoteTs，由 .on 收到异地址消息时打戳）
+function updateDiag() {
+  const box = $('idDiag'); if (!box) return;
+  if (!state.address) { box.hidden = true; return; }
+  box.hidden = false;
+  const idEl = $('diagId'); if (idEl) idEl.textContent = shortAddr(state.address);
+  const rEl = $('diagRemote');
+  if (rEl) {
+    if (!_lastRemoteTs) { rEl.textContent = t('diagNever'); rEl.className = 'diag-v warn'; }
+    else {
+      const s = Math.floor((Date.now() - _lastRemoteTs) / 1000);
+      rEl.textContent = (s < 60 ? s + 's' : Math.floor(s / 60) + 'm') + ' 前';
+      rEl.className = 'diag-v ok';
+    }
+  }
+}
 
 /* ---------- IndexedDB ---------- */
 const DB_NAME = 'web3chat';
@@ -1070,7 +1099,7 @@ function connectGun() {
     }
     // 旧数据若仍是 Gun 图引用（{ '#': ... }），不要用它覆盖本地好记录
     if (data.file && typeof data.file === 'object' && data.file['#']) return;
-    if (data.address && data.address !== state.address) _lastRemoteTs = Date.now();  // 收到他人消息 = 铁证中继活着
+    if (data.address && data.address !== state.address) { _lastRemoteTs = Date.now(); updateDiag(); }  // 收到他人消息 = 铁证中继活着
     if (seen.has(data.id)) return;
     seen.add(data.id);   // 同步登记，消除 Gun .map().on 解析期多次回调同一条消息的竞态
     saveMessage(data).then(renderMessages);
@@ -1740,6 +1769,7 @@ function bindUI() {
   renderChannelList(); renderFriendList(); renderCtxHeader();
   await renderMessages();
   if (state.syncOn) setMode();
+  setInterval(updateDiag, 1000);   // 诊断「Xs 前」实时刷新
 })().catch((err) => {
   console.error(err);
   alert(t('initFail') + err.message + t('initFailTip'));

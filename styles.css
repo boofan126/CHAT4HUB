@@ -52,6 +52,13 @@ html, body {
 .id-addr-row { display: flex; align-items: center; gap: 6px; }
 .id-addr-row .addr { flex: 1; min-width: 0; font-family: monospace; font-size: 12px; color: var(--accent-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .id-addr-row #logoutBtn { flex-shrink: 0; }
+.id-diag { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 1px dashed var(--border); border-radius: 8px; background: rgba(255,255,255,.03); font-size: 12px; }
+.diag-line { display: flex; justify-content: space-between; gap: 8px; }
+.diag-k { color: var(--muted); }
+.diag-v { font-family: monospace; color: var(--accent-2); }
+.diag-v.ok { color: #3ddc84; }
+.diag-v.warn { color: #ffb454; }
+.diag-note { margin-top: 2px; color: var(--muted); line-height: 1.5; font-size: 11px; }
 .identity-panel .lang-switch { align-self: flex-start; }
 
 /* 按钮 */
