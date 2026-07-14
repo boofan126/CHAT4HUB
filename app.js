@@ -342,9 +342,24 @@ function openDB() {
       if (!d.objectStoreNames.contains('friends')) d.createObjectStore('friends', { keyPath: 'address' });
       if (!d.objectStoreNames.contains('meta')) d.createObjectStore('meta', { keyPath: 'key' });
     };
-    req.onsuccess = () => { db = req.result; resolve(db); };
+    req.onsuccess = () => { db = req.result; resolve(db); dedupeMessages(); };
     req.onerror = () => reject(req.error);
   });
+}
+// 启动自检：清理 messages 仓库中因旧 schema（无 keyPath / 用自增键）累积的重复记录，按 id 去重只保留一条
+async function dedupeMessages() {
+  try {
+    const tx = db.transaction('messages', 'readwrite');
+    const store = tx.objectStore('messages');
+    const keys = await new Promise((res, rej) => { const r = store.getAllKeys(); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+    const vals = await new Promise((res, rej) => { const r = store.getAll(); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+    const keep = new Set();
+    for (let i = 0; i < vals.length; i++) {
+      const id = vals[i] && vals[i].id;
+      if (!id || keep.has(id)) store.delete(keys[i]);   // 无 id 或重复 → 删除该记录
+      else keep.add(id);
+    }
+  } catch (e) { /* 旧浏览器/仓库异常时静默跳过，渲染层仍有按 id 去重兜底 */ }
 }
 function idbGet(store, key) {
   return new Promise((res, rej) => { const t = db.transaction(store, 'readonly'); const r = t.objectStore(store).get(key); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
@@ -610,10 +625,21 @@ async function removeFriend(address) {
 }
 
 /* ---------- 消息：存 / 取 / 渲染 ---------- */
-async function saveMessage(msg) { await idbPut('messages', msg); seen.add(msg.id); }
+async function saveMessage(msg) {
+  if (seen.has(msg.id)) return;
+  // 兼容旧版 IndexedDB（messages 仓库若未设 keyPath / 用自增键，put 不会覆盖 → 会累积重复记录）：
+  // 写入前先查是否已存在同 id，存在则跳过，避免重复记录。
+  const all = await idbGetAll('messages');
+  if (all.some(m => m && m.id === msg.id)) { seen.add(msg.id); return; }
+  await idbPut('messages', msg);
+  seen.add(msg.id);
+}
 async function localMessagesForCtx(ctx) {
   const all = await idbGetAll('messages');
-  return all.filter(m => m.ctx === ctx).sort((a, b) => a.ts - b.ts);
+  const seenId = new Set();
+  // 按 id 去重：即便底层 IndexedDB 因旧库 schema 残留重复记录，每条消息也只显示一次
+  return all.filter(m => m.ctx === ctx && !seenId.has(m.id) && seenId.add(m.id))
+            .sort((a, b) => a.ts - b.ts);
 }
 async function renderMessages() {
   const box = $('messages');
@@ -975,6 +1001,7 @@ function connectGun() {
     // 旧数据若仍是 Gun 图引用（{ '#': ... }），不要用它覆盖本地好记录
     if (data.file && typeof data.file === 'object' && data.file['#']) return;
     if (seen.has(data.id)) return;
+    seen.add(data.id);   // 同步登记，消除 Gun .map().on 解析期多次回调同一条消息的竞态
     saveMessage(data).then(renderMessages);
   });
   gun.get('web3chat').get('del').map().on((data) => { handleDelete(data); });
