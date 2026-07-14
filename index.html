@@ -58,6 +58,7 @@
       </svg>
       <h1 class="welcome-title" data-i18n="welcomeTitle">绝对安全的信息交流</h1>
       <p class="welcome-sub" data-i18n="welcomeSub">端到端加密 · 去中心化网络 · 你的密钥只在你手中</p>
+      <div class="welcome-decode" id="welcomeDecode" aria-hidden="true">SibyX</div>
       <button class="btn primary lg" id="enterBtn" data-i18n="enterApp">开始使用 →</button>
       <p class="welcome-foot" data-i18n="welcomeFoot">SibyX · 隐私优先的本地加密聊天</p>
     </div>
@@ -233,6 +234,35 @@
         fetch(RELAY_BASE + '/track', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: payload, mode: 'no-cors' }).catch(function(){});
       }
     }catch(e){}
+  })();
+  </script>
+  <!-- SibyX 欢迎页解码故障字标：乱码逐字解码定形为 SibyX（源自 Logo V3 动效） -->
+  <script>
+  (function(){
+    var el = document.getElementById('welcomeDecode');
+    if(!el) return;
+    var TARGET = "SibyX";
+    var POOL = "▓▒░#@%&*abcde0123456789<>/\\";
+    el.classList.add('glitch');
+    var frame = 0, holdUntil = 0;
+    function rnd(){ return POOL[(Math.random()*POOL.length)|0]; }
+    function tick(){
+      var wel = document.getElementById('welcome');
+      if(wel && wel.hidden) return;            // 进入应用后停止动画
+      var now = Date.now();
+      if(frame === 0 && holdUntil && now < holdUntil){
+        el.textContent = TARGET; setTimeout(tick, 140); return;
+      }
+      if(frame === 0) holdUntil = 0;
+      frame++;
+      var settled = Math.min(TARGET.length, (frame/4)|0);
+      var out = "";
+      for(var i=0;i<TARGET.length;i++){ out += (i<settled)?TARGET[i]:rnd(); }
+      el.textContent = out;
+      if(settled >= TARGET.length){ holdUntil = now + 2600; frame = 0; }
+      setTimeout(tick, 70);
+    }
+    tick();
   })();
   </script>
 </body>

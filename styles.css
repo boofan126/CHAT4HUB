@@ -326,6 +326,21 @@ html, body {
 }
 .welcome-sub { margin: 0; max-width: 92%; font-size: clamp(14px, 2.6vw, 19px); color: var(--muted); line-height: 1.6; }
 .welcome-foot { margin: 6px 0 0; font-size: 12px; color: var(--muted); opacity: .7; }
+/* 欢迎页解码故障字标：乱码 → 逐字解码定形为 SibyX（源自 Logo V3 动效） */
+.welcome-decode {
+  margin: 2px 0; min-height: 1.15em;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: clamp(34px, 7vw, 58px); font-weight: 700; letter-spacing: 8px; line-height: 1.15;
+  color: #EAF1FF; user-select: none;
+  text-shadow: 0 0 22px rgba(45,226,196,.25);
+}
+.welcome-decode.glitch { animation: wdglitch 2.6s infinite; }
+@keyframes wdglitch {
+  0%, 92%, 100% { transform: translate(0,0); text-shadow: 3px 0 #00D6C2, -3px 0 #FF3D7F, 0 0 22px rgba(45,226,196,.25); }
+  93% { transform: translate(-2px,1px); text-shadow: 5px 0 #00D6C2, -5px 0 #FF3D7F, 0 0 22px rgba(45,226,196,.25); }
+  96% { transform: translate(2px,-1px); text-shadow: -4px 0 #00D6C2, 4px 0 #FF3D7F, 0 0 22px rgba(45,226,196,.25); }
+}
+@media (max-width: 480px) { .welcome-decode { letter-spacing: 5px; } }
 .welcome-topbar { position: absolute; top: 16px; right: 16px; z-index: 2; display: flex; gap: 8px; align-items: center; }
 .welcome-topbar .btn { font-size: 13px; padding: 6px 12px; }
 .lang-btn.active { color: var(--accent); border-color: var(--accent); }
