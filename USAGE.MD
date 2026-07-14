@@ -171,3 +171,19 @@ SibyX uses **cookieless anonymous analytics** to understand traffic — without 
 - New incoming messages refresh the disambiguation and banner automatically.
 
 > **Why "auto-disambiguate" instead of "forbid duplicates"?** SibyX is decentralized with no central server, so no authority can forcibly stop two people from picking the same nickname. What the app does is **detect + keep names visually unique**: anyone can still set any nickname, but on collision the two are separated by an address suffix, so you'll never mix up A-小明 and B-小明. This is the soft-notice approach — no hard block when setting a name.
+
+---
+
+## 14. Data backup & restore (important)
+
+- SibyX is decentralized: **all your chat history and identity keys live only in your browser's local IndexedDB** — there is no central server keeping a copy, so "backup / recovery" is entirely up to you.
+- **Clearing "Cached images and files" does NOT affect your history** — the records aren't in the cache (the client-side Gun also uses no browser cache).
+- **Clearing "Cookies and other site data / Site data" wipes IndexedDB too** → chat history, identity private keys, private-channel keys, and all settings are gone.
+- Can you get it back from the relay (chat4hub-relay)?
+  - The relay does persist messages to disk (`./data`, radisk), but it runs on the **Render free tier whose filesystem is ephemeral** — every sleep-wake or redeploy may reset the disk → **don't treat it as a backup**.
+  - Even if the relay still has the data, after clearing site data you become a "new identity" (private keys gone), so private-channel / DM ciphertext can no longer be decrypted.
+- The real safeguard = the built-in **export** feature:
+  - **Export identity**: a JSON containing both private keys + address — the **only backup of your account**. Lose it = permanently a new identity; no one can recover your old DMs.
+  - **Export records**: a JSON backup of all messages (merged & de-duplicated by message id, channel union, no keys included).
+  - After switching devices / clearing cache: import the identity JSON → same address restored → you can decrypt old DMs / channels (if the relay still has the data); import the records JSON → history restored directly.
+- Three practical rules: ① clearing "cache" alone is safe; ② before clearing "site data", always click **Export identity** (and optionally **Export records**) and save the JSON somewhere safe; ③ don't rely on the relay as a backup — your own export file is what matters.
