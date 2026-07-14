@@ -396,6 +396,8 @@ const state = {
   addrNick: {},           // address -> 最近一次使用的昵称（从消息/申请里收集，用于成员列表展示）
   listExpanded: { channels: false, friends: false },  // 列表是否展开全部（默认仅前5）
   panelCollapsed: { channels: false, friends: false }, // 频道/好友面板是否整体折叠
+  _gunConnected: false,   // 防重入：connectGun 是否已执行（避免多实例 + 监听器堆积）
+  _sending: false,        // 发送锁：防止 sendMessage 并发重复调用（Enter+click 同时触发等）
 };
 const seen = new Set();
 
@@ -637,9 +639,21 @@ async function saveMessage(msg) {
 async function localMessagesForCtx(ctx) {
   const all = await idbGetAll('messages');
   const seenId = new Set();
-  // 按 id 去重：即便底层 IndexedDB 因旧库 schema 残留重复记录，每条消息也只显示一次
-  return all.filter(m => m.ctx === ctx && !seenId.has(m.id) && seenId.add(m.id))
-            .sort((a, b) => a.ts - b.ts);
+  const seenFp = new Map();      // 指纹 -> ts（时间窗判定）
+  const WINDOW = 10000;         // 10 秒内「同地址+同内容」视为同一条，去重
+  return all.filter(m => {
+    if (m.ctx !== ctx) return false;
+    if (seenId.has(m.id)) return false;   // 第一层：按 id 去重
+    seenId.add(m.id);
+    // 内容指纹：公开频道用 text；私有频道/私聊用密文 cipher+iv（文本字段不存在）
+    const content = (m.text != null) ? m.text : ((m.cipher || '') + '|' + (m.iv || ''));
+    const fp = (m.address || '') + '|' + content;
+    const prev = seenFp.get(fp);
+    const now = m.ts || 0;
+    if (prev !== undefined && Math.abs(now - prev) <= WINDOW) return false; // 第二层：内容级去重（兜底）
+    seenFp.set(fp, now);
+    return true;
+  }).sort((a, b) => a.ts - b.ts);
 }
 async function renderMessages() {
   const box = $('messages');
@@ -794,6 +808,10 @@ function renderAttachPreview() {
 function clearAttachPreview() { renderAttachPreview(); }
 
 async function sendMessage() {
+  // 发送锁：防止 Enter 键 + 按钮点击同时触发导致同一条消息发多次
+  if (state._sending) return;
+  state._sending = true;
+  try {
   const input = $('msgInput');
   const text = input.value.trim();
   const file = state.pendingFile;            // 待发送附件（可能为 null）
@@ -860,6 +878,7 @@ async function sendMessage() {
     else if (msg.kind === 'channel') { delete wire.file; }   // 兜底：去掉可能残留的 file:undefined
     gun.get('web3chat').get(msg.id).put(wire);
   }
+  } finally { state._sending = false; }
 }
 
 /* ---------- 上下文切换 ---------- */
@@ -984,8 +1003,14 @@ function setConn(cls, title) {
 }
 function connectGun() {
   if (typeof Gun === 'undefined') { $('syncHint').textContent = t('noGun'); setConn('off', t('noGun')); return false; }
+  // 防重入：若已有 gun 实例在跑，先离线再重建（避免多实例 + .map().on 监听器堆积 → 消息重复处理）
+  if (gun && state._gunConnected) {
+    try { gun.off(); } catch(e) {}   // Gun 实例级 off（移除所有本地监听）
+    try { gun = null; } catch(e) {}
+  }
   const url = (state.relayUrl || RELAY_URL).trim();
   gun = Gun({ peers: [url], localStorage: false, radisk: false });
+  state._gunConnected = true;
   // 真实连接状态指示：连上中继 → ✅，断开 → ⚠️
   try {
   gun.on('hi', () => { if (state.syncOn) { $('syncHint').textContent = t('syncLive'); setConn('live', t('syncLive')); } });
