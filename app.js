@@ -50,6 +50,7 @@ const I18N = {
     relayPh: '中继地址（需含 /gun）',
     nickLabel: '昵称',
     nickPh: '你的昵称（本机显示，并随消息发给对方）',
+    nickCollision: (n) => '⚠ 本频道有重名昵称「' + n + '」，已自动用地址后4位区分显示。',
     exportMsgs: '导出记录', importMsgs: '导入记录',
     exportMsgsTitle: '导出全部聊天记录（JSON）', importMsgsTitle: '从备份文件导入聊天记录',
     importMsgOk: (n) => '已导入 ' + n + ' 条消息。',
@@ -164,6 +165,7 @@ const I18N = {
     relayPh: 'Relay URL (must include /gun)',
     nickLabel: 'Nickname',
     nickPh: 'Your nickname (shown locally, sent to peers with messages)',
+    nickCollision: (n) => '⚠ Duplicate nickname "' + n + '" in this channel — auto-disambiguated with last 4 chars of the address.',
     exportMsgs: 'Export', importMsgs: 'Import',
     exportMsgsTitle: 'Export all chat history (JSON)', importMsgsTitle: 'Import chat history from a backup file',
     attachTitle: 'Attach a file (images sent with message, ≤ 1.2 MB)',
@@ -617,20 +619,22 @@ async function renderMessages() {
   const box = $('messages');
   const list = await localMessagesForCtx(state.context.id);
   box.innerHTML = '';
+  // 本频道冲突昵称集合（仅频道上下文查重；DM 一对一不查）
+  let collided = new Set();
+  if (state.context.type !== 'dm') collided = await collisionNicks(state.context.id);
   if (list.length === 0) {
     const e = document.createElement('div'); e.className = 'empty';
     e.textContent = state.context.type === 'dm' ? t('emptyDM') : t('emptyChannel');
-    box.appendChild(e); return;
+    box.appendChild(e); await renderNickWarn(collided); return;
   }
-  for (const m of list) box.appendChild(await renderOne(m));
+  for (const m of list) box.appendChild(await renderOne(m, collided));
   box.scrollTop = box.scrollHeight;
+  await renderNickWarn(collided);
 }
-async function renderOne(m) {
+async function renderOne(m, collided) {
   const el = document.createElement('div');
   const mine = m.address === state.address;
-  const who = mine
-    ? (state.nickname || shortAddr(m.address))
-    : (m.nick || shortAddr(m.address));
+  const who = disambigNick(m, collided);
   if (m.nick) state.addrNick[m.address] = m.nick;   // 收集昵称，供成员列表展示
   el.className = 'msg' + (mine ? ' mine' : '');
   const time = new Date(m.ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
@@ -1180,10 +1184,12 @@ function updateMemberBadge() {
   else badge.hidden = true;
 }
 
-function renderMemberPanel() {
+async function renderMemberPanel() {
   const modal = $('memberModal'); if (!modal || modal.hidden) return;
   const body = $('memberBody'); if (!body) return;
   const name = state.context.id;
+  const collided = await collisionNicks(name);
+  const disp = (a) => { const b = nickOf(a); return (collided.has(b)) ? b + '·' + a.slice(-4) : b; };
   const title = $('memberTitle'); if (title) title.textContent = (channelIsPrivate(name) ? '🔒 ' : '') + t('channelPrefix') + name;
   body.innerHTML = '';
   if (!channelIsPrivate(name)) {
@@ -1208,7 +1214,7 @@ function renderMemberPanel() {
       const isMe = addr === state.address;
       const role = (addr === meta.creator) ? t('roleCreator') : (meta.approvers && meta.approvers[addr] ? t('roleApprover') : '');
       const star = (addr === main) ? '⭐ ' : '';
-      li.innerHTML = `<span class="nm">${star}${nickOf(addr)}</span>`;
+      li.innerHTML = `<span class="nm">${star}${disp(addr)}</span>`;
       if (role) { const r = document.createElement('span'); r.className = 'sub'; r.textContent = role; li.appendChild(r); }
       if (meta.creator === state.address && addr !== state.address) {
         const k = document.createElement('span'); k.className = 'del'; k.textContent = t('kick'); k.title = t('kick');
@@ -1226,7 +1232,7 @@ function renderMemberPanel() {
       const h = document.createElement('div'); h.className = 'hint'; h.textContent = t('pendingReq'); body.appendChild(h);
       const ul = document.createElement('ul'); ul.className = 'list';
       for (const [addr, d] of reqs) {
-        const li = document.createElement('li'); li.innerHTML = `<span class="nm">${nickOf(addr)}</span>`;
+        const li = document.createElement('li'); li.innerHTML = `<span class="nm">${disp(addr)}</span>`;
         const btn = document.createElement('button'); btn.className = 'btn primary sm'; btn.textContent = t('approve');
         btn.addEventListener('click', () => approveRequest(name, addr, d.encFrom));
         li.appendChild(btn); ul.appendChild(li);
@@ -1243,6 +1249,46 @@ function closeMemberModal() { const m = $('memberModal'); if (m) m.hidden = true
 function nickOf(addr) {
   if (addr === state.address) return state.nickname || shortAddr(addr);
   return (state.addrNick && state.addrNick[addr]) || shortAddr(addr);
+}
+// —— 频道内昵称查重（本频道参与者维度，零额外流量）——
+// 参与者昵称表：从本机 IndexedDB 该频道全部消息推导（address -> 最近使用的昵称）
+async function channelParticipants(ctx) {
+  const list = await localMessagesForCtx(ctx);
+  const best = {};
+  for (const m of list) {
+    if (!m || !m.address) continue;
+    const nick = (m.address === state.address)
+      ? (state.nickname || shortAddr(m.address))
+      : (m.nick || shortAddr(m.address));
+    if (!best[m.address] || (m.ts || 0) >= best[m.address].ts) best[m.address] = { nick, ts: m.ts || 0 };
+  }
+  return best; // { addr: { nick, ts } }
+}
+// 本频道内「被 ≥2 个不同地址共用」的昵称集合（即冲突昵称）
+async function collisionNicks(ctx) {
+  const parts = await channelParticipants(ctx);
+  const count = {};
+  for (const a in parts) { const n = parts[a].nick; count[n] = (count[n] || 0) + 1; }
+  const set = new Set();
+  for (const n in count) if (count[n] >= 2) set.add(n);
+  return set;
+}
+// 给某条消息计算展示名：冲突时自动加地址后4位消歧（如 小明·ab12）
+function disambigNick(m, collided) {
+  const base = (m.address === state.address)
+    ? (state.nickname || shortAddr(m.address))
+    : (m.nick || shortAddr(m.address));
+  if (collided && collided.has(base)) return base + '·' + m.address.slice(-4);
+  return base;
+}
+// 顶部警告条：本频道存在重名昵称时显示
+async function renderNickWarn(collided) {
+  const el = $('nickWarn'); if (!el) return;
+  if (state.context.type === 'dm') { el.hidden = true; return; }
+  const set = collided || await collisionNicks(state.context.id);
+  if (!set || set.size === 0) { el.hidden = true; return; }
+  el.textContent = t('nickCollision', Array.from(set).join('、'));
+  el.hidden = false;
 }
 
 /* ---------- 表情 / 表情包选择器 ---------- */
