@@ -1003,88 +1003,81 @@ function setConn(cls, title) {
   d.title = title || '';
 }
 // —— 中继连接保活与自动重连 ——
-// 背景：Render 免费层 15 分钟无请求即休眠，WS 连接会断；且 connectGun 一旦建好 gun，
-// 若中继当时没连上，_gunConnected 不能盲目置 true，否则后续永不重连 →
-// 只能回放本机数据、收不到他人消息（正是「同频道看不到别人消息」的元凶）。
-let _kaTimer = null;   // 保活 ping 定时器
-let _kaFirst = false;   // 首次 tick 仅 ping、不立即重建（刚建好 gun）
-let _rcTimer = null;    // 掉线重连定时器
-let _lastRemoteTs = 0;  // 最近一次「收到他人消息」时间戳 —— 铁证：已真正连上中继
-function keepAliveUrl() {
+// 设计原则（吸取 b91e261 教训）：
+//   1) 稳定优先：gun 实例一旦建好且中继地址未变，就【永远复用，绝不重建】。
+//      浏览器里 Gun 中继的 hi/bye 事件极不可靠（实测本地 multicast 假 peer 的 bye 反而频繁触发），
+//      绝不能让它驱动「是否重建」，否则会反复 gun=Gun() 重建 → 连接震荡 → 收不到他人消息。
+//   2) 只在【保活 ping 连续失败】时才认为中继真死，才重建一次（绝不用 gun.off() 拆共享 hub）。
+let _kaTimer = null;    // 保活 ping 定时器
+let _kaPingFail = 0;    // 连续 ping 失败次数
+let _lastRemoteTs = 0;   // 最近一次「收到他人消息」时间戳 —— 佐证中继活着
+function relayBase() {
   const u = (state.relayUrl || RELAY_URL).trim().replace(/\/gun\/?$/, '');
-  return u + '/healthz';
+  return u;
 }
 function startKeepAlive() {
   if (_kaTimer) return;
-  _kaFirst = false;
   const tick = () => {
     if (!state.syncOn) { stopKeepAlive(); return; }
-    // 1) ping 中继（no-cors，仅唤醒 Render 免费层，不读响应）
-    fetch(keepAliveUrl(), { mode: 'no-cors', cache: 'no-store' }).catch(() => {});
-    if (!_kaFirst) { _kaFirst = true; return; }          // 首次只唤醒，不急于重建
-    // 2) 未连上、且 5 分钟内没收到过他人消息 → 重建 gun 恢复 peer（绝不用 gun.off() 拆共享 hub）
-    if (gun && !state._gunConnected && Date.now() - _lastRemoteTs > 5 * 60 * 1000) { gun = null; connectGun(); }
+    // no-cors ping：仅唤醒 Render 免费层（防 15min 休眠断连），不读响应
+    fetch(relayBase() + '/healthz', { mode: 'no-cors', cache: 'no-store' })
+      .then(() => { _kaPingFail = 0; })
+      .catch(() => {
+        _kaPingFail++;
+        // 连续 2 次 ping 失败（约 20min）+ 近期（>20min）没收到过他人消息 → 中继真死了，重建一次
+        if (_kaPingFail >= 2 && Date.now() - _lastRemoteTs > 20 * 60 * 1000) {
+          _kaPingFail = 0;
+          gun = null; connectGun();
+        }
+      });
   };
   tick();
-  _kaTimer = setInterval(tick, 10 * 60 * 1000);         // 每 10 分钟，留足余量在 15min 休眠窗内
+  _kaTimer = setInterval(tick, 10 * 60 * 1000);   // 每 10 分钟
 }
 function stopKeepAlive() { if (_kaTimer) { clearInterval(_kaTimer); _kaTimer = null; } }
-function scheduleReconnect() {
-  if (_rcTimer) return;
-  _rcTimer = setTimeout(() => {
-    _rcTimer = null;
-    if (state.syncOn && gun && !state._gunConnected) { gun = null; connectGun(); }
-  }, 5000);
-}
 function connectGun() {
   if (typeof Gun === 'undefined') { $('syncHint').textContent = t('noGun'); setConn('off', t('noGun')); return false; }
   const url = (state.relayUrl || RELAY_URL).trim();
-  // 已存在 gun、中继地址未变、且确已连上 → 直接复用，不重建、不重复订阅。
-  // 关键：绝不要调用 gun.off() —— Gun 同页面多个实例共享全局 hub/peer 连接，
-  // off() 会拆除中继 peer，导致新建实例复用到已死的 hub，.map().on 只能回放本机数据、收不到他人消息。
-  if (gun && state._gunConnected && state._relayUrl === url) return true;
-  // 需（重新）建实例：首次 / 中继地址变了 / 连接曾断开（_gunConnected=false）
-  const needNew = !gun || state._relayUrl !== url || !state._gunConnected;
+  // 稳定核心：gun 已存在且中继地址未变 → 直接复用，不重建、不重复订阅。
+  // 这正是「上一阶段（44b0da3）能稳定收消息」的写法；b91e261 改成依赖 hi 事件驱动 _gunConnected，
+  // 而浏览器里中继 hi 极不可靠 → _gunConnected 一直 false → 每次调用都重建 → 连接震荡 → 收不到。
+  if (gun && state._relayUrl === url) return true;
   state._relayUrl = url;
-  if (needNew) {
-    gun = Gun({ peers: [url], localStorage: false, radisk: false });
-    state._gunConnected = false;   // 待 'hi' 真正连上再置 true；绝不盲目置 true
-    // 仅认「中继」peer 的连接事件：Gun 还有本地 multicast 等无关 peer，其 hi/bye 会误判掉线，必须过滤。
+  gun = Gun({ peers: [url], localStorage: false, radisk: false });
+  state._gunConnected = true;   // 仅作 UI 标记；重建与否【不】依赖它，避免死局/震荡
+  // hi/bye 仅用于状态显示；不用来触发重建（Gun 会给本地 multicast 假 peer 发 bye，误判掉线）
+  try {
     let relayHost = '';
     try { relayHost = new URL(url).host; } catch (e) { relayHost = url; }
-    try {
-      gun.on('hi', (peer) => {
-        const pu = (peer && (peer.url || peer.id)) || '';
-        if (relayHost && pu.indexOf(relayHost) === -1) return;   // 忽略非中继 peer
-        state._gunConnected = true; _lastRemoteTs = Date.now();
-        if (state.syncOn) { $('syncHint').textContent = t('syncLive'); setConn('live', t('syncLive')); }
-      });
-      gun.on('bye', (peer) => {
-        const pu = (peer && (peer.url || peer.id)) || '';
-        if (relayHost && pu.indexOf(relayHost) === -1) return;   // 忽略非中继 peer
-        state._gunConnected = false;
-        if (state.syncOn) { $('syncHint').textContent = t('syncDown'); setConn('down', t('syncDown')); }
-        scheduleReconnect();   // 中继掉线 → 5s 后自动重建恢复
-      });
-    } catch (e) { /* 某些 Gun 版本不支持 mesh 事件，忽略 */ }
-    gun.get('web3chat').map().on((data) => {
-      if (!data || !data.id || !data.sig) return;
-      if (data.ctx !== state.context.id) return; // 仅摄取当前上下文
-      // 频道附件以 fileJson（顶层字符串）同步，这里还原成对象；避免 Gun 把嵌套 file 变成图引用 → 接收端显示 file(0B)
-      if (data.fileJson && !data.file) {
-        try { data.file = JSON.parse(data.fileJson); } catch (e) { data.file = null; }
-      }
-      // 旧数据若仍是 Gun 图引用（{ '#': ... }），不要用它覆盖本地好记录
-      if (data.file && typeof data.file === 'object' && data.file['#']) return;
-      if (data.address && data.address !== state.address) _lastRemoteTs = Date.now();  // 收到他人消息 = 铁证已连上中继
-      if (seen.has(data.id)) return;
-      seen.add(data.id);   // 同步登记，消除 Gun .map().on 解析期多次回调同一条消息的竞态
-      saveMessage(data).then(renderMessages);
+    gun.on('hi', (peer) => {
+      const pu = (peer && (peer.url || peer.id)) || '';
+      if (relayHost && pu.indexOf(relayHost) === -1) return;   // 忽略非中继 peer
+      if (state.syncOn) { $('syncHint').textContent = t('syncLive'); setConn('live', t('syncLive')); }
     });
-    gun.get('web3chat').get('del').map().on((data) => { handleDelete(data); });
-    watchMeta();   // 启动私有频道元数据监听
-  }
-  startKeepAlive();   // 启动保活 ping + 连接兜底（防 Render 免费层休眠断连）
+    gun.on('bye', (peer) => {
+      const pu = (peer && (peer.url || peer.id)) || '';
+      if (relayHost && pu.indexOf(relayHost) === -1) return;   // 忽略非中继 peer
+      if (state.syncOn) { $('syncHint').textContent = t('syncDown'); setConn('down', t('syncDown')); }
+      // 注意：不在此重建。真正断线由保活 ping 失败检测处理，避免假 peer bye 误触发震荡
+    });
+  } catch (e) { /* 某些 Gun 版本不支持 mesh 事件，忽略 */ }
+  gun.get('web3chat').map().on((data) => {
+    if (!data || !data.id || !data.sig) return;
+    if (data.ctx !== state.context.id) return; // 仅摄取当前上下文
+    // 频道附件以 fileJson（顶层字符串）同步，这里还原成对象；避免 Gun 把嵌套 file 变成图引用 → 接收端显示 file(0B)
+    if (data.fileJson && !data.file) {
+      try { data.file = JSON.parse(data.fileJson); } catch (e) { data.file = null; }
+    }
+    // 旧数据若仍是 Gun 图引用（{ '#': ... }），不要用它覆盖本地好记录
+    if (data.file && typeof data.file === 'object' && data.file['#']) return;
+    if (data.address && data.address !== state.address) _lastRemoteTs = Date.now();  // 收到他人消息 = 铁证中继活着
+    if (seen.has(data.id)) return;
+    seen.add(data.id);   // 同步登记，消除 Gun .map().on 解析期多次回调同一条消息的竞态
+    saveMessage(data).then(renderMessages);
+  });
+  gun.get('web3chat').get('del').map().on((data) => { handleDelete(data); });
+  watchMeta();   // 启动私有频道元数据监听
+  startKeepAlive();   // 启动保活 ping（防 Render 免费层休眠断连）
   return true;
 }
 // 仅更新文案（切换语言时复用），不重连
