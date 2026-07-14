@@ -137,7 +137,7 @@ A: Pure-local mode best fits "records stay only local". After enabling GunDB syn
 
 ---
 
-## 8. Anonymous analytics (privacy notice)
+## 11. Anonymous analytics (privacy notice)
 
 SibyX uses **cookieless anonymous analytics** to understand traffic — without compromising its "privacy-first / zero-collection" promise:
 
@@ -147,3 +147,27 @@ SibyX uses **cookieless anonymous analytics** to understand traffic — without 
 - All data is **aggregated only** — no individual tracking.
 
 > This keeps the promise "your key is yourself, we collect nothing" intact: at the analytics level we can't see *who* you are, only *roughly how many people visited today and from which channels*.
+
+---
+
+## 12. Deleting your own messages
+
+- Every message **you sent** has a red **✕** button at the top-right of its bubble (on the name/time row).
+- Click ✕ → a confirm dialog ("Removed for everyone — only your own messages; irreversible") → after confirm:
+  - It **disappears from your side** immediately;
+  - It also **disappears from everyone else's side** (the app broadcasts a signed deletion event; peers delete only after verifying your signature, so nobody can forge a delete on *your* messages).
+- Works in: public channels, private encrypted channels, and DMs — as long as **you sent it**.
+- Limits: ① you can only delete your own messages (signature + address check prevents abuse); ② it's a **logical delete**, not cryptographic erasure (the relay's storage may keep low-level residue, but the UI never shows it); ③ after deleting in a public channel, someone who already screenshotted/cached it still has it — unavoidable in any IM; ④ broadcasting to others requires sync on; in pure-local mode it only deletes on your own device.
+
+> Deletion is **irreversible** — think before you click.
+
+## 13. Nickname collision check within a channel (auto-disambiguation)
+
+- Inside one channel, if **two different identities** use the **same nickname**, the app handles it automatically so you never confuse who is who:
+  - The displayed name on a message bubble gets the **last 4 chars of the address** appended on collision, e.g. `小明·ab12` and `小明·cd34`;
+  - A **yellow banner** appears at the top of the channel: `⚠ Duplicate nickname "小明" in this channel — auto-disambiguated with last 4 chars of the address.`
+  - The **member list** of private channels is disambiguated the same way.
+- Scope: **participants of this channel** (anyone who posted here, or is a member of a private channel) — **zero extra network traffic**; DMs (1:1) are not checked.
+- New incoming messages refresh the disambiguation and banner automatically.
+
+> **Why "auto-disambiguate" instead of "forbid duplicates"?** SibyX is decentralized with no central server, so no authority can forcibly stop two people from picking the same nickname. What the app does is **detect + keep names visually unique**: anyone can still set any nickname, but on collision the two are separated by an address suffix, so you'll never mix up A-小明 and B-小明. This is the soft-notice approach — no hard block when setting a name.
