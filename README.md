@@ -84,7 +84,7 @@ node relay.js                  # 默认监听 8765，可设 PORT 环境变量
 ### Render 一键 Blueprint（静态站 + 中继，均免费、无需绑卡）
 推荐把本仓库连到 Render **一次搞定两层**：仓库根目录已放好 `render.yaml`，在 Render 控制台 **New + → Blueprint → 连接仓库**，它会据此同时部署：
 - `chat4`（Static Site，前端）
-- `chat4-relay`（Web Service，GunDB 中继，监听 `PORT`、健康检查 `/healthz`）
+- `chat4hub-relay`（Web Service，GunDB 中继，监听 `PORT`、健康检查 `/healthz`）
 
 免费层**无需绑卡**；但中继 Web 服务空闲 15 分钟会**休眠**，下次访问冷启动 30–60 秒（休眠期间朋友暂连不上，属正常）。若要中继 24/7 常驻，升级 Basic 或在自己机器用 ngrok。
 
@@ -93,7 +93,7 @@ node relay.js                  # 默认监听 8765，可设 PORT 环境变量
 ### ② GunDB 中继（让消息能跨人同步）
 中继必须跑在能运行 Node 的地方。`relay/` 目录已备好（`package.json` / `relay.js` / `Procfile`）：
 - **本机 + 内网穿透（最快验证）**：`cd relay && npm install && node relay.js`，再用 ngrok 等把 8765 暴露为公网：`ngrok http 8765`，把得到的 `https://xxxx.ngrok.io/gun` 填到客户端的「中继地址」。
-- **免费 Node 托管（Render Web Service / Fly.io）**：连仓库 + 用 `Procfile`（`web: node relay.js`），或用上面的 **Blueprint**（`render.yaml`）一次把静态站和中继都部署了；拿到公网 URL（形如 `https://chat4-relay.onrender.com/gun`）后填到「中继地址」。Render 免费层**无需绑卡**，但中继 Web 服务空闲 15 分钟会休眠。
+- **免费 Node 托管（Render Web Service / Fly.io）**：连仓库 + 用 `Procfile`（`web: node relay.js`），或用上面的 **Blueprint**（`render.yaml`）一次把静态站和中继都部署了；拿到公网 URL（形如 `https://chat4hub-relay.onrender.com/gun`）后填到「中继地址」。Render 免费层**无需绑卡**，但中继 Web 服务空闲 15 分钟会休眠。
 - **自有 VPS**：`node relay.js` 后台常驻（或 pm2 / systemd）。
 
 ### 朋友怎么连接你

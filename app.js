@@ -47,7 +47,7 @@ const I18N = {
     send: '发送',
     syncLabel: '去中心化同步（GunDB P2P）',
     syncTitle: '同步 Sync',
-    relayPh: '中继地址（需含 /gun）',
+    relayPh: '中继地址（可填多个，逗号分隔；每个需含 /gun）',
     nickLabel: '昵称',
     nickPh: '你的昵称（本机显示，并随消息发给对方）',
     nickCollision: (n) => '⚠ 本频道有重名昵称「' + n + '」，已自动用地址后4位区分显示。',
@@ -166,7 +166,7 @@ const I18N = {
     send: 'Send',
     syncLabel: 'Decentralized Sync (GunDB P2P)',
     syncTitle: 'Sync',
-    relayPh: 'Relay URL (must include /gun)',
+    relayPh: 'Relay URL(s) — comma-separated; each must include /gun',
     nickLabel: 'Nickname',
     nickPh: 'Your nickname (shown locally, sent to peers with messages)',
     nickCollision: (n) => '⚠ Duplicate nickname "' + n + '" in this channel — auto-disambiguated with last 4 chars of the address.',
@@ -426,7 +426,7 @@ const state = {
   listExpanded: { channels: false, friends: false },  // 列表是否展开全部（默认仅前5）
   panelCollapsed: { channels: false, friends: false }, // 频道/好友面板是否整体折叠
   _gunConnected: false,   // 已连接标记：connectGun 是否已建好 gun 实例
-  _relayUrl: '',          // 上次 connectGun 实际连接的中继地址（用于判断是否需重建）
+  _relayKey: '',          // 上次 connectGun 实际连接的中继地址列表（'|' 连接，用于判断是否需重建）
   _sending: false,        // 发送锁：防止 sendMessage 并发重复调用（Enter+click 同时触发等）
 };
 const seen = new Set();
@@ -1040,9 +1040,15 @@ function setConn(cls, title) {
 let _kaTimer = null;    // 保活 ping 定时器
 let _kaPingFail = 0;    // 连续 ping 失败次数
 let _lastRemoteTs = 0;   // 最近一次「收到他人消息」时间戳 —— 佐证中继活着
+// 解析中继地址：支持逗号/空格/分号分隔的多个地址；每个规范为以 /gun 结尾
+function parseRelays(str) {
+  return String(str || '')
+    .split(/[\s,;]+/).map(s => s.trim()).filter(Boolean)
+    .map(u => u.replace(/\/gun\/?$/, '').replace(/\/+$/, '') + '/gun');
+}
 function relayBase() {
-  const u = (state.relayUrl || RELAY_URL).trim().replace(/\/gun\/?$/, '');
-  return u;
+  const first = parseRelays(state.relayUrl || RELAY_URL)[0] || RELAY_URL;
+  return first.replace(/\/gun\/?$/, '');
 }
 function startKeepAlive() {
   if (_kaTimer) return;
@@ -1066,26 +1072,26 @@ function startKeepAlive() {
 function stopKeepAlive() { if (_kaTimer) { clearInterval(_kaTimer); _kaTimer = null; } }
 function connectGun() {
   if (typeof Gun === 'undefined') { $('syncHint').textContent = t('noGun'); setConn('off', t('noGun')); return false; }
-  const url = (state.relayUrl || RELAY_URL).trim();
-  // 稳定核心：gun 已存在且中继地址未变 → 直接复用，不重建、不重复订阅。
+  const urls = parseRelays(state.relayUrl || RELAY_URL);   // 支持多个中继（逗号分隔）
+  const key = urls.join('|');
+  // 稳定核心：gun 已存在且中继地址列表未变 → 直接复用，不重建、不重复订阅。
   // 这正是「上一阶段（44b0da3）能稳定收消息」的写法；b91e261 改成依赖 hi 事件驱动 _gunConnected，
   // 而浏览器里中继 hi 极不可靠 → _gunConnected 一直 false → 每次调用都重建 → 连接震荡 → 收不到。
-  if (gun && state._relayUrl === url) return true;
-  state._relayUrl = url;
-  gun = Gun({ peers: [url], localStorage: false, radisk: false });
+  if (gun && state._relayKey === key) return true;
+  state._relayKey = key;
+  gun = Gun({ peers: urls, localStorage: false, radisk: false });   // 多个 peer 并行连接，互为冗余
   state._gunConnected = true;   // 仅作 UI 标记；重建与否【不】依赖它，避免死局/震荡
   // hi/bye 仅用于状态显示；不用来触发重建（Gun 会给本地 multicast 假 peer 发 bye，误判掉线）
   try {
-    let relayHost = '';
-    try { relayHost = new URL(url).host; } catch (e) { relayHost = url; }
+    const relayHosts = urls.map(u => { try { return new URL(u).host; } catch (e) { return u; } }).filter(Boolean);
     gun.on('hi', (peer) => {
       const pu = (peer && (peer.url || peer.id)) || '';
-      if (relayHost && pu.indexOf(relayHost) === -1) return;   // 忽略非中继 peer
+      if (relayHosts.length && !relayHosts.some(h => pu.indexOf(h) !== -1)) return;   // 忽略非中继 peer
       if (state.syncOn) { $('syncHint').textContent = t('syncLive'); setConn('live', t('syncLive')); }
     });
     gun.on('bye', (peer) => {
       const pu = (peer && (peer.url || peer.id)) || '';
-      if (relayHost && pu.indexOf(relayHost) === -1) return;   // 忽略非中继 peer
+      if (relayHosts.length && !relayHosts.some(h => pu.indexOf(h) !== -1)) return;   // 忽略非中继 peer
       if (state.syncOn) { $('syncHint').textContent = t('syncDown'); setConn('down', t('syncDown')); }
       // 注意：不在此重建。真正断线由保活 ping 失败检测处理，避免假 peer bye 误触发震荡
     });
@@ -1601,8 +1607,9 @@ function bindUI() {
     const v = $('relayInput').value.trim(); if (!v) return;
     state.relayUrl = v; saveRelay();
     $('relayEditBox').classList.remove('open');
-    $('syncHint').textContent = t('relaySaved');
-    if (state.syncOn) { gun = null; setMode(); }   // 开着同步则立即重连到新地址
+    const n = parseRelays(v).length;
+    $('syncHint').textContent = (n > 1 ? `已更新 ${n} 个中继，正在重新连接…` : t('relaySaved'));
+    if (state.syncOn) { gun = null; setMode(); }   // 开着同步则立即重连到新地址（多中继并行）
   });
   // 昵称：可随时修改，存本机身份并即时刷新显示
   $('nickInput').value = state.nickname || '';
