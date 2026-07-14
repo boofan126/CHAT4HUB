@@ -72,10 +72,7 @@ const I18N = {
     diagId: '本机身份短码',
     diagRemote: '最近收到他人消息',
     diagNever: '从未',
-    diagCount: '收到条数',
-    diagLastText: '最后消息预览',
-    diagIdbCount: '本地存储',
-    diagNote: '在两台「设备」上对比：此行若【相同】说明是同一浏览器/身份（自然只看到「自己」）；若【不同】且一直显示「从未」，才是真·收不到。打开 F12 Console 可看 [SibyX recv] 日志定位断点。',
+    diagNote: '在两台「设备」上对比：此行若【相同】说明是同一浏览器/身份（自然只看到「自己」）；若【不同】且一直显示「从未」，才是真·收不到。',
     emptyDM: '端到端加密私聊已开启，内容仅你与对方可读。',
     emptyChannel: '频道为空，发送第一条（公开签名消息）。',
     verified: '✓ 已验证', unverified: '✗ 验签失败',
@@ -194,10 +191,7 @@ const I18N = {
     diagId: 'This device identity',
     diagRemote: 'Last message from others',
     diagNever: 'never',
-    diagCount: 'Received count',
-    diagLastText: 'Last msg preview',
-    diagIdbCount: 'Local storage',
-    diagNote: 'Compare on two "devices": if these are the SAME, it is the same browser/identity (so you only ever see "yourself"). If DIFFERENT yet this stays "never", that is a real receive failure. Open F12 Console for [SibyX recv] debug logs.',
+    diagNote: 'Compare on two "devices": if these are the SAME, it is the same browser/identity (so you only ever see "yourself"). If DIFFERENT yet this stays "never", that is a real receive failure.',
     emptyDM: 'End-to-end encrypted DM enabled — only you and your peer can read it.',
     emptyChannel: 'Channel is empty. Send the first (public, signed) message.',
     verified: '✓ Verified', unverified: '✗ Verify failed',
@@ -356,17 +350,6 @@ function updateDiag() {
       rEl.textContent = (s < 60 ? s + 's' : Math.floor(s / 60) + 'm') + ' 前';
       rEl.className = 'diag-v ok';
     }
-  }
-  // 新增：收到条数 + 最后消息预览
-  const cEl = $('diagCount'); if (cEl) cEl.textContent = String(_recvCount);
-  const tEl = $('diagLastText'); if (tEl) tEl.textContent = _lastRemoteText || '-';
-  // 新增：IDB 本地存储条数（异步刷新，不阻塞主流程）
-  const idbEl = $('diagIdbCount'); if (idbEl && db) {
-    idbGetAll('messages').then(all => {
-      const ctxMatch = all.filter(m => (m.ctx||'').toLowerCase() === (state.context.id||'').toLowerCase()).length;
-      idbEl.textContent = ctxMatch + '/' + all.length;
-      idbEl.className = all.length > 0 ? 'diag-v ok' : 'diag-v warn';
-    }).catch(() => { idbEl.textContent = '?'; });
   }
 }
 
@@ -681,9 +664,7 @@ async function saveMessage(msg) {
   // 写入前先查是否已存在同 id，存在则跳过，避免重复记录。
   const all = await idbGetAll('messages');
   if (all.some(m => m && m.id === msg.id)) { seen.add(msg.id); return; }
-  console.log('[SibyX save] PUT id=', (msg.id||'').slice(0,12), 'ctx=', msg.ctx, 'addr=', (msg.address||'').slice(0,8), 'text=', (msg.text||'').slice(0,30));
   await idbPut('messages', msg);
-  console.log('[SibyX save] DONE id=', (msg.id||'').slice(0,12), '→ IDB 总记录数=' + (await idbGetAll('messages')).length);
   seen.add(msg.id);
 }
 async function localMessagesForCtx(ctx) {
@@ -712,36 +693,23 @@ function debounceRender() {
   if (_renderDebounce) clearTimeout(_renderDebounce);
   _renderDebounce = setTimeout(async () => {
     _renderDebounce = null;
-    console.log('[SibyX] debounceRender: 执行批量渲染');
     await renderMessages();
   }, 150);   // 150ms 窗口：密集消息合并为一次渲染
 }
 async function renderMessages() {
   const box = $('messages');
   const list = await localMessagesForCtx(state.context.id);
-  console.log('[SibyX render] START ctx=', state.context.id, 'box=', !!box, 'list.length=', list.length);
-  if (!box) { console.error('[SibyX render] FATAL: #messages element not found!'); return; }
+  if (!box) return;
   box.innerHTML = '';
-  // 本频道冲突昵称集合（仅频道上下文查重；DM 一对一不查）
+  // 本频道冲突昵称集合（仅频道上下文查重；DM 一对一不查重）
   let collided = new Set();
   if (state.context.type !== 'dm') collided = await collisionNicks(state.context.id);
   if (list.length === 0) {
-    // 🔍 关键诊断：IDB 全量 dump，对比实际存储的 ctx vs 查询用的 ctx
-    try {
-      const allRaw = await idbGetAll('messages');
-      console.log('[SibyX render] ⚠️ list=0 但 IDB 共', allRaw.length, '条记录');
-      console.log('[SibyX render] 所有消息的 ctx 列表:', allRaw.map(m => ({id:(m.id||'').slice(0,8), ctx:m.ctx, addr:(m.address||'').slice(0,6), text:(m.text||'').slice(0,20)})));
-      // 额外检查：是否有 ctx 完全不匹配的情况
-      const matched = allRaw.filter(m => m.ctx === state.context.id);
-      console.log('[SibyX render] 其中 ctx 匹配 "', state.context.id, '" 的有', matched.length, '条');
-    } catch(e) { console.error('[SibyX render] IDB dump error:', e); }
     const e = document.createElement('div'); e.className = 'empty';
     e.textContent = state.context.type === 'dm' ? t('emptyDM') : t('emptyChannel');
     box.appendChild(e); await renderNickWarn(collided); return;
   }
-  let rendered = 0;
-  for (const m of list) { try { box.appendChild(await renderOne(m, collided)); rendered++; } catch (err) { console.error('[SibyX] renderOne error id=', m.id?.slice(0,12), err); } }
-  console.log('[SibyX render] DONE rendered=', rendered, '/', list.length, 'box.childCount=', box.children.length);
+  for (const m of list) { try { box.appendChild(await renderOne(m, collided)); } catch (err) { /* skip unrenderable */ } }
   box.scrollTop = box.scrollHeight;
   await renderNickWarn(collided);
 }
@@ -1084,8 +1052,6 @@ function setConn(cls, title) {
 let _kaTimer = null;    // 保活 ping 定时器
 let _kaPingFail = 0;    // 连续 ping 失败次数
 let _lastRemoteTs = 0;   // 最近一次「收到他人消息」时间戳 —— 佐证中继活着
-let _recvCount = 0;      // 本次会话收到的他人消息总数
-let _lastRemoteText = '';// 最近一条他人消息的文本预览
 let _renderDebounce = null; // renderMessages 防抖定时器（解决 Gun 回放时高频 render 竞态清空）
 // 解析中继地址：支持逗号/空格/分号分隔的多个地址；每个规范为以 /gun 结尾
 function parseRelays(str) {
@@ -1154,11 +1120,10 @@ function connectGun() {
     // 旧数据若仍是 Gun 图引用（{ '#': ... }），不要用它覆盖本地好记录
     if (data.file && typeof data.file === 'object' && data.file['#']) return;
     const isRemote = data.address && data.address !== state.address;
-    if (isRemote) { _lastRemoteTs = Date.now(); _recvCount++; _lastRemoteText = (data.text || '(加密/无文本)').slice(0, 30); updateDiag(); }  // 收到他人消息 = 铁证中继活着
-    if (seen.has(data.id)) { console.log('[SibyX recv] DROP(已处理) id=', data.id.slice(0,12), 'ctx=', data.ctx, 'remote=', !!isRemote); return; }
+    if (isRemote) { _lastRemoteTs = Date.now(); updateDiag(); }
+    if (seen.has(data.id)) return;
     seen.add(data.id);   // 同步登记，消除 Gun .map().on 解析期多次回调同一条消息的竞态
-    console.log('[SibyX recv] OK id=', data.id.slice(0,12), 'ctx=', data.ctx, 'text=', (data.text||'').slice(0,40), 'remote=', !!isRemote, 'addr=', (data.address||'').slice(0,8));
-    saveMessage(data).then(() => { console.log('[SibyX recv] SAVED id=', data.id.slice(0,12)); return debounceRender(); }).catch(err => { console.error('[SibyX recv] SAVE FAIL id=', data.id.slice(0,12), err); });
+    saveMessage(data).then(() => debounceRender()).catch(err => { /* save failed */ });
   });
   gun.get('web3chat').get('del').map().on((data) => { handleDelete(data); });
   watchMeta();   // 启动私有频道元数据监听
