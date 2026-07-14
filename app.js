@@ -692,6 +692,17 @@ async function localMessagesForCtx(ctx) {
     return true;
   }).sort((a, b) => a.ts - b.ts);
 }
+// 防抖版 renderMessages：批量消息合为一次渲染，避免 Gun 回放时高频清空/重建 DOM 竞态
+// 根因：Gun 连接后 .map().on() 会回放中继历史（可能数十条毫秒级到达），
+//       每条都调 renderMessages → 每次 box.innerHTML='' 清空聊天区 → 上一次渲染被覆盖 → 最终空白
+function debounceRender() {
+  if (_renderDebounce) clearTimeout(_renderDebounce);
+  _renderDebounce = setTimeout(async () => {
+    _renderDebounce = null;
+    console.log('[SibyX] debounceRender: 执行批量渲染');
+    await renderMessages();
+  }, 150);   // 150ms 窗口：密集消息合并为一次渲染
+}
 async function renderMessages() {
   const box = $('messages');
   const list = await localMessagesForCtx(state.context.id);
@@ -1049,6 +1060,7 @@ let _kaPingFail = 0;    // 连续 ping 失败次数
 let _lastRemoteTs = 0;   // 最近一次「收到他人消息」时间戳 —— 佐证中继活着
 let _recvCount = 0;      // 本次会话收到的他人消息总数
 let _lastRemoteText = '';// 最近一条他人消息的文本预览
+let _renderDebounce = null; // renderMessages 防抖定时器（解决 Gun 回放时高频 render 竞态清空）
 // 解析中继地址：支持逗号/空格/分号分隔的多个地址；每个规范为以 /gun 结尾
 function parseRelays(str) {
   return String(str || '')
@@ -1119,7 +1131,7 @@ function connectGun() {
     if (seen.has(data.id)) { console.log('[SibyX recv] DROP(已处理) id=', data.id.slice(0,12), 'ctx=', data.ctx, 'remote=', !!isRemote); return; }
     seen.add(data.id);   // 同步登记，消除 Gun .map().on 解析期多次回调同一条消息的竞态
     console.log('[SibyX recv] OK id=', data.id.slice(0,12), 'ctx=', data.ctx, 'text=', (data.text||'').slice(0,40), 'remote=', !!isRemote, 'addr=', (data.address||'').slice(0,8));
-    saveMessage(data).then(() => { console.log('[SibyX recv] SAVED+RENDER id=', data.id.slice(0,12)); return renderMessages(); }).catch(err => { console.error('[SibyX recv] SAVE FAIL id=', data.id.slice(0,12), err); });
+    saveMessage(data).then(() => { console.log('[SibyX recv] SAVED id=', data.id.slice(0,12)); return debounceRender(); }).catch(err => { console.error('[SibyX recv] SAVE FAIL id=', data.id.slice(0,12), err); });
   });
   gun.get('web3chat').get('del').map().on((data) => { handleDelete(data); });
   watchMeta();   // 启动私有频道元数据监听
