@@ -47,7 +47,7 @@ const I18N = {
     send: '发送',
     syncLabel: '去中心化同步（GunDB P2P）',
     syncTitle: '同步 Sync',
-    relayPh: '中继地址（可填多个，逗号分隔；每个需含 /gun）',
+    relayPh: '请输入中继地址，或联系技术支持',
     nickLabel: '昵称',
     nickPh: '你的昵称（本机显示，并随消息发给对方）',
     nickCollision: (n) => '⚠ 本频道有重名昵称「' + n + '」，已自动用地址后4位区分显示。',
@@ -162,7 +162,7 @@ const I18N = {
     send: 'Send',
     syncLabel: 'Decentralized Sync (GunDB P2P)',
     syncTitle: 'Sync',
-    relayPh: 'Relay URL(s) — comma-separated; each must include /gun',
+    relayPh: 'Enter relay address, or contact technical support',
     nickLabel: 'Nickname',
     nickPh: 'Your nickname (shown locally, sent to peers with messages)',
     nickCollision: (n) => '⚠ Duplicate nickname "' + n + '" in this channel — auto-disambiguated with last 4 chars of the address.',
@@ -284,9 +284,10 @@ function detectLang() {
 }
 
 /* ---------- 中继地址（可配置） ---------- */
-// 默认指向本机自建中继；部署后请在界面「中继地址」里改成你自己的中继 URL（需含 /gun 路径）。
+// 默认【不预置】任何中继地址——本产品定位为「私有中继托管」：每个客户应有自己的专属中继，
+// 由技术支持（或用户在界面）手动填入，绝不硬编码官方/公共中继，否则所有部署都连到同一台。
 // 注意：GunDB 中继是 Node 服务，免费静态托管（GitHub Pages 等）跑不了，须放能跑 Node 的环境。
-const RELAY_URL = 'https://chat4hub-relay.onrender.com/gun';
+const RELAY_URL = '';   // 空 = 出厂即纯本地模式；打开网页时中继输入框显示「请输入中继地址，或联系技术支持」
 // 附件大小上限：2 MB。图片发送前自动压缩到上限内；非图片(如 PDF/视频)超过则弹窗提示。保护免费中继不被大文件拖垮。
 const MAX_ATTACH_BYTES = 2 * 1024 * 1024;
 
@@ -1031,15 +1032,18 @@ function parseRelays(str) {
     .map(u => u.replace(/\/gun\/?$/, '').replace(/\/+$/, '') + '/gun');
 }
 function relayBase() {
-  const first = parseRelays(state.relayUrl || RELAY_URL)[0] || RELAY_URL;
+  const first = parseRelays(state.relayUrl || RELAY_URL)[0] || '';
+  if (!first) return '';   // 未配置中继（纯本地模式）→ 返回空，调用方须跳过 ping
   return first.replace(/\/gun\/?$/, '');
 }
 function startKeepAlive() {
   if (_kaTimer) return;
   const tick = () => {
     if (!state.syncOn) { stopKeepAlive(); return; }
+    const base = relayBase();
+    if (!base) return;   // 未配置中继：纯本地模式，跳过保活 ping
     // no-cors ping：仅唤醒 Render 免费层（防 15min 休眠断连），不读响应
-    fetch(relayBase() + '/healthz', { mode: 'no-cors', cache: 'no-store' })
+    fetch(base + '/healthz', { mode: 'no-cors', cache: 'no-store' })
       .then(() => { _kaPingFail = 0; })
       .catch(() => {
         _kaPingFail++;
