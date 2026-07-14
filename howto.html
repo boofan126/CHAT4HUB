@@ -53,6 +53,13 @@
       </ul>
       <div class="ht-note">🔑 <strong>身份备份的作用</strong>：它带走的是你的「账号（地址）+ 两把密钥」。换设备 / 遗失设备后，在新设备「<strong>导入身份</strong>」即可<strong>恢复同一个地址、好友关系</strong>，并且因为私钥回来了，你能<strong>继续收发消息、解密私人频道与私聊</strong>。<br><strong>但要留意</strong>：聊天记录本身只存在旧设备的浏览器本地（IndexedDB），<strong>身份备份不含聊天内容</strong>。所以——若旧设备还在（换机），请务必再用「<strong>导出记录</strong>」把历史一并带走，新设备「导入身份」+「导入记录」才能既恢复账号、又恢复全部对话（见第七节）；若设备已遗失且从未导出过记录，旧对话无法找回，但「导入身份」至少让你用回同一个账号、继续收发新消息。</div>
       <div class="ht-note">⚠️ 私钥以明文存在本浏览器。任何能打开你浏览器的人都能读到。敏感场景请用「导出身份」备份后清除，或在隐私窗口使用。</div>
+      <div class="ht-note">⚠️⚠️ <strong>谨慎「登出」与清理浏览器数据</strong>：「登出」按钮会一次性清空本地的身份与全部聊天 / 好友记录（不可恢复）；在浏览器里「清除站点数据 / Cookie / IndexedDB」效果等同。二者都会让网页<strong>重新生成一套全新身份（新地址）</strong>——此时你对新身份而言已是「另一个人」：
+        <ul>
+          <li><strong>失去对旧消息的控制权</strong>：旧身份发出的消息，其发送者地址与新地址不符，删除按钮不再显示，即便强行广播删除，对方也会因「地址不匹配」拒绝——你再也删不掉自己曾经发的那些话。</li>
+          <li><strong>旧私聊 / 私人频道密文也读不开</strong>：没有旧密钥，历史加密内容无法解密。</li>
+        </ul>
+        🔑 <strong>这恰是 SibyX 的魅力所在</strong>：账号真正属于你（密钥在你手里，没有「找回密码」这种后门，也没有公司能替你重置）。代价是——<strong>身份即钥匙，弄丢了就真没了</strong>。所以：在登出或清理浏览器数据<strong>之前</strong>，请务必先「导出身份」+「导出记录」双备份；日后导入即可满血恢复同一身份与全部对话。
+      </div>
 
       <h2>三、界面布局</h2>
       <ul>
@@ -148,6 +155,13 @@
       </ul>
       <div class="ht-note">🔑 <strong>What identity backup does</strong>: it carries your "account (address) + two keys". After a device switch / loss, "<strong>Import Identity</strong>" on the new device <strong>restores the same address and friend relationships</strong>, and because the private keys are back, you can <strong>keep sending/receiving messages and decrypt private channels & DMs</strong>.<br><strong>But note</strong>: chat history itself lives only in the old device's browser (IndexedDB) — <strong>the identity backup contains no chat content</strong>. So — if the old device still works (a switch), also use "<strong>Export</strong>" (history) to carry the history along; on the new device do "Import Identity" + "Import" (history) to restore both your account and all conversations (see Section 7). If the device is already lost and you never exported history, the old conversations can't be recovered, but "Import Identity" at least lets you use the same account again and keep exchanging new messages.</div>
       <div class="ht-note">⚠️ Private keys are stored in plaintext in this browser. Anyone who can open your browser can read them. For sensitive scenarios, use "Export Identity" to back up, then clear, or use a private/incognito window.</div>
+      <div class="ht-note">⚠️⚠️ <strong>Be careful with "Log out" and clearing browser data</strong>: the "Log out" button wipes your local identity and all chat/friend records at once (irreversible); "clear site data / cookies / IndexedDB" in your browser does the same. Either way the page <strong>regenerates a brand-new identity (new address)</strong> — to that new identity you are now "a different person":
+        <ul>
+          <li><strong>You lose control over your old messages</strong>: messages sent by the old identity carry a sender address that no longer matches the new one, so the delete button disappears; even if you force-broadcast a delete, peers reject it because of "address mismatch" — you can never delete those words you once sent.</li>
+          <li><strong>Old DMs / private-channel ciphertext can't be opened</strong>: without the old keys, historical encrypted content stays unreadable.</li>
+        </ul>
+        🔑 <strong>This is exactly SibyX's charm</strong>: the account truly belongs to you (keys are in your hands — no "reset password" backdoor, no company can reset it for you). The cost is — <strong>identity is the key; lose it and it's really gone</strong>. So: <strong>before</strong> logging out or clearing browser data, always do "Export Identity" + "Export history" as a two-part backup; import later to fully restore the same identity and all conversations.
+      </div>
 
       <h2>3. Layout</h2>
       <ul>
