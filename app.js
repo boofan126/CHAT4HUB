@@ -675,7 +675,8 @@ async function removeFriend(address) {
 
 /* ---------- 消息：存 / 取 / 渲染 ---------- */
 async function saveMessage(msg) {
-  if (seen.has(msg.id)) return;
+  // 注意：调用方（recv 回调）已经通过 seen 集合做了去重，
+  // 此处不再重复检查 seen.has()，避免「回调先 add→这里误判已存在→跳过写入」的 bug。
   // 兼容旧版 IndexedDB（messages 仓库若未设 keyPath / 用自增键，put 不会覆盖 → 会累积重复记录）：
   // 写入前先查是否已存在同 id，存在则跳过，避免重复记录。
   const all = await idbGetAll('messages');
