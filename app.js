@@ -74,6 +74,7 @@ const I18N = {
     diagNever: '从未',
     diagCount: '收到条数',
     diagLastText: '最后消息预览',
+    diagIdbCount: '本地存储',
     diagNote: '在两台「设备」上对比：此行若【相同】说明是同一浏览器/身份（自然只看到「自己」）；若【不同】且一直显示「从未」，才是真·收不到。打开 F12 Console 可看 [SibyX recv] 日志定位断点。',
     emptyDM: '端到端加密私聊已开启，内容仅你与对方可读。',
     emptyChannel: '频道为空，发送第一条（公开签名消息）。',
@@ -195,6 +196,7 @@ const I18N = {
     diagNever: 'never',
     diagCount: 'Received count',
     diagLastText: 'Last msg preview',
+    diagIdbCount: 'Local storage',
     diagNote: 'Compare on two "devices": if these are the SAME, it is the same browser/identity (so you only ever see "yourself"). If DIFFERENT yet this stays "never", that is a real receive failure. Open F12 Console for [SibyX recv] debug logs.',
     emptyDM: 'End-to-end encrypted DM enabled — only you and your peer can read it.',
     emptyChannel: 'Channel is empty. Send the first (public, signed) message.',
@@ -358,6 +360,14 @@ function updateDiag() {
   // 新增：收到条数 + 最后消息预览
   const cEl = $('diagCount'); if (cEl) cEl.textContent = String(_recvCount);
   const tEl = $('diagLastText'); if (tEl) tEl.textContent = _lastRemoteText || '-';
+  // 新增：IDB 本地存储条数（异步刷新，不阻塞主流程）
+  const idbEl = $('diagIdbCount'); if (idbEl && db) {
+    idbGetAll('messages').then(all => {
+      const ctxMatch = all.filter(m => (m.ctx||'').toLowerCase() === (state.context.id||'').toLowerCase()).length;
+      idbEl.textContent = ctxMatch + '/' + all.length;
+      idbEl.className = all.length > 0 ? 'diag-v ok' : 'diag-v warn';
+    }).catch(() => { idbEl.textContent = '?'; });
+  }
 }
 
 /* ---------- IndexedDB ---------- */
@@ -1134,7 +1144,8 @@ function connectGun() {
   } catch (e) { /* 某些 Gun 版本不支持 mesh 事件，忽略 */ }
   gun.get('web3chat').map().on((data) => {
     if (!data || !data.id || !data.sig) return;
-    if (data.ctx !== state.context.id) return; // 仅摄取当前上下文
+    // ctx 大小写无关匹配（Gun 中继/不同客户端可能产生 Global/global 不一致）
+    if ((data.ctx || '').toLowerCase() !== (state.context.id || '').toLowerCase()) return;
     // 频道附件以 fileJson（顶层字符串）同步，这里还原成对象；避免 Gun 把嵌套 file 变成图引用 → 接收端显示 file(0B)
     if (data.fileJson && !data.file) {
       try { data.file = JSON.parse(data.fileJson); } catch (e) { data.file = null; }
