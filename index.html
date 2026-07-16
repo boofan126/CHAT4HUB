@@ -217,6 +217,15 @@
     </div>
   </div>
 
+    <!-- 好友请求弹窗（收到请求时弹出；接受/拒绝后自动刷新，未处理的刷新后继续弹） -->
+    <div class="modal" id="friendReqModal" hidden>
+      <div class="modal-mask" id="friendReqMask"></div>
+      <div class="modal-card">
+        <div class="modal-head"><span id="friendReqTitle" data-i18n="friendReqPopupTitle">好友请求</span><button class="btn ghost sm" id="friendReqClose" title="关闭">✕</button></div>
+        <div class="modal-body" id="friendReqBody"></div>
+      </div>
+    </div>
+
   <script src="app.js"></script>
   <!-- SibyX 匿名访问统计 beacon（cookieless：不写 cookie/localStorage，IP 由服务端哈希截断） -->
   <script>

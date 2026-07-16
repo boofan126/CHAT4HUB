@@ -79,6 +79,15 @@ const I18N = {
     dmNoKey: '该好友缺少加密公钥，无法加密。请让对方在频道发条消息后点「＋好友」（自动带公钥），或用其「公钥卡片」添加。',
     pasteCard: '粘贴好友的「公钥卡片」（在对方客户端点「复制我的公钥」得到）：',
     friendAdded: '好友已添加：',
+    friendReqPopupTitle: '好友请求',
+    friendReqAccept: '接受',
+    friendReqReject: '拒绝',
+    friendReqSent: '已发送好友请求，等待对方接受',
+    friendReqWaiting: '等待对方接受…',
+    dmNeedMutual: '需双方互为好友才能私聊',
+    friendNowMutual: '已互为好友，可以开始私聊',
+    friendReqRejected: '已拒绝该好友请求',
+    noFriendReq: '暂无待处理的好友请求',
     addFailed: '添加失败：',
     copied: '已复制你的「公钥卡片」，发给好友即可被加为好友并收发加密私聊。',
     importOk: '身份导入成功',
@@ -194,6 +203,15 @@ const I18N = {
     dmNoKey: 'This friend has no encryption key, cannot encrypt. Ask them to post in a channel then click "+Friend" (auto-includes keys), or add via their "public key card".',
     pasteCard: 'Paste your friend\'s "public key card" (they get it via "Copy My Public Key"):',
     friendAdded: 'Friend added: ',
+    friendReqPopupTitle: 'Friend Requests',
+    friendReqAccept: 'Accept',
+    friendReqReject: 'Reject',
+    friendReqSent: 'Friend request sent, awaiting acceptance',
+    friendReqWaiting: 'Waiting for acceptance…',
+    dmNeedMutual: 'Both sides must be mutual friends to DM',
+    friendNowMutual: 'Now mutual friends, you can start DM',
+    friendReqRejected: 'Friend request rejected',
+    noFriendReq: 'No pending friend requests',
     addFailed: 'Add failed: ',
     copied: 'Your "public key card" is copied. Send it to friends so they can add you and exchange encrypted DMs.',
     importOk: 'Identity imported successfully',
@@ -331,7 +349,7 @@ let db = null;
 
 function openDB() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 2); // version 2：新增 friends / meta
+    const req = indexedDB.open(DB_NAME, 3); // version 3：新增 friendReq（收到的好友请求）
     req.onupgradeneeded = () => {
       const d = req.result;
       if (!d.objectStoreNames.contains('identity')) d.createObjectStore('identity', { keyPath: 'key' });
@@ -342,6 +360,7 @@ function openDB() {
       }
       if (!d.objectStoreNames.contains('friends')) d.createObjectStore('friends', { keyPath: 'address' });
       if (!d.objectStoreNames.contains('meta')) d.createObjectStore('meta', { keyPath: 'key' });
+      if (!d.objectStoreNames.contains('friendReq')) d.createObjectStore('friendReq', { keyPath: 'from' });
     };
     req.onsuccess = () => { db = req.result; resolve(db); dedupeMessages(); };
     req.onerror = () => reject(req.error);
@@ -390,6 +409,7 @@ const state = {
   context: { type: 'channel', id: 'global', peer: null },
   channels: [],
   friends: new Map(),
+  incomingReqs: new Map(),   // from -> {from,signPubB64,dhPubRawB64,nickname,ts} 收到的好友请求（未处理，刷新后续弹）
   // —— 路线 B：加密成员制 ——
   channelKeys: {},        // name -> { key: CryptoKey(AES-GCM 256), version: n }  （本机持有，不广播）
   channelMeta: {},        // name -> { kind, creator, keyVersion, members:{}, approvers:{}, membersDh:{} }（网络明文元数据缓存）
@@ -609,15 +629,82 @@ async function saveCtx() { await idbPut('meta', { key: 'lastCtx', value: state.c
 /* ---------- 好友 ---------- */
 async function loadFriends() {
   const list = await idbGetAll('friends');
-  state.friends = new Map(list.map(f => [f.address, f]));
+  // 老数据（无 status 字段）默认 'mutual'，兼容既有单向好友
+  state.friends = new Map(list.map(f => { if (!f.status) f.status = 'mutual'; return [f.address, f]; }));
 }
 // address 由签名公钥推导，保证与消息里的地址一致
-async function addFriendRaw(address, signPubB64, dhPubB64, nickname) {
+// status: 'mutual'（互为好友，可私聊）| 'outgoing'（我已发请求，等对方接受）
+async function addFriendRaw(address, signPubB64, dhPubB64, nickname, status) {
   if (!address) return;
   if (state.friends.has(address)) return;
-  state.friends.set(address, { address, signPubB64: signPubB64 || null, dhPubRawB64: dhPubB64 || null, nickname: nickname || shortAddr(address) });
+  state.friends.set(address, { address, signPubB64: signPubB64 || null, dhPubRawB64: dhPubB64 || null, nickname: nickname || shortAddr(address), status: status || 'mutual' });
   await idbPut('friends', state.friends.get(address));
   renderFriendList();
+}
+// 收到的好友请求：从 friendReq 仓库载入（刷新后保留，弹窗续显）
+async function loadFriendReqs() {
+  const list = await idbGetAll('friendReq');
+  state.incomingReqs = new Map(list.map(r => [r.from, r]));
+}
+// 发起好友请求（替代原先的静默单向添加）：本地记 outgoing + 签名广播给目标
+async function sendFriendRequest(address, signPubB64, dhPubB64, nickname) {
+  if (!address || state.friends.has(address)) return;
+  state.friends.set(address, { address, signPubB64: signPubB64 || null, dhPubRawB64: dhPubB64 || null, nickname: nickname || shortAddr(address), status: 'outgoing' });
+  await idbPut('friends', state.friends.get(address));
+  renderFriendList();
+  if (typeof gun !== 'undefined' && gun && state.syncOn) {
+    try {
+      const ts = Date.now();
+      const sig = await signMessage(state.address + '|' + address + '|' + ts);
+      gun.get('web3chat').get('friendreq').get(address).get(state.address).put({ from: state.address, target: address, sign: state.signPubB64, dh: state.dhPubB64, nick: state.nickname || '', ts, sig });
+      alert(t('friendReqSent'));
+    } catch (e) { /* 广播失败不影响本地记录 */ }
+  }
+}
+// 接受好友请求：把对方记为 mutual + 回发 ack（让对方也翻成 mutual）
+async function acceptFriendRequest(from) {
+  const r = state.incomingReqs.get(from); if (!r) return;
+  state.friends.set(from, { address: from, signPubB64: r.signPubB64 || null, dhPubRawB64: r.dhPubRawB64 || null, nickname: r.nickname || shortAddr(from), status: 'mutual' });
+  await idbPut('friends', state.friends.get(from));
+  state.incomingReqs.delete(from); await idbDelete('friendReq', from);
+  if (typeof gun !== 'undefined' && gun && state.syncOn) {
+    try {
+      const ts = Date.now();
+      const sig = await signMessage(state.address + '|' + from + '|ack|' + ts);
+      gun.get('web3chat').get('friendack').get(from).get(state.address).put({ from: state.address, to: from, sign: state.signPubB64, ts, sig });
+    } catch (e) {}
+  }
+  renderFriendReqModal(); renderFriendList();
+}
+// 拒绝好友请求：仅移除本地未处理记录（保留则刷新后续弹）
+async function rejectFriendRequest(from) {
+  state.incomingReqs.delete(from); await idbDelete('friendReq', from);
+  renderFriendReqModal();
+}
+// 好友请求弹窗：列出所有未处理请求，每个带 接受/拒绝；点后自动刷新，空则关闭
+function renderFriendReqModal() {
+  const modal = $('friendReqModal'); if (!modal) return;
+  const body = $('friendReqBody'); if (!body) return;
+  const reqs = [...state.incomingReqs.values()];
+  if (reqs.length === 0) { modal.hidden = true; return; }
+  body.innerHTML = '';
+  for (const r of reqs) {
+    const row = document.createElement('div'); row.className = 'freq-row';
+    const info = document.createElement('div'); info.className = 'freq-info';
+    const nm = (r.nickname && r.nickname !== r.from) ? r.nickname : shortAddr(r.from);
+    const b = document.createElement('b'); b.textContent = nm;
+    const sub = document.createElement('span'); sub.className = 'sub'; sub.textContent = shortAddr(r.from);
+    info.appendChild(b); info.appendChild(document.createElement('br')); info.appendChild(sub);
+    const act = document.createElement('div'); act.className = 'freq-actions';
+    const acc = document.createElement('button'); acc.className = 'btn primary sm'; acc.textContent = t('friendReqAccept');
+    acc.addEventListener('click', () => acceptFriendRequest(r.from));
+    const rej = document.createElement('button'); rej.className = 'btn ghost sm'; rej.textContent = t('friendReqReject');
+    rej.addEventListener('click', () => rejectFriendRequest(r.from));
+    act.appendChild(acc); act.appendChild(rej);
+    row.appendChild(info); row.appendChild(act);
+    body.appendChild(row);
+  }
+  modal.hidden = false;
 }
 async function removeFriend(address) {
   state.friends.delete(address);
@@ -748,7 +835,7 @@ async function renderOne(m, collided) {
   body.textContent = text; // textContent 防 XSS
   if (file) body.appendChild(buildAttachment(file)); // 附件用 DOM 构建，防 XSS
   const ab = el.querySelector('.add');
-  if (ab) ab.addEventListener('click', () => addFriendRaw(ab.dataset.addr, ab.dataset.sign, ab.dataset.dh, state.addrNick[ab.dataset.addr] || ''));
+  if (ab) ab.addEventListener('click', () => sendFriendRequest(ab.dataset.addr, ab.dataset.sign, ab.dataset.dh, state.addrNick[ab.dataset.addr] || ''));
   const db = el.querySelector('.del');
   if (db) db.addEventListener('click', () => deleteMessage(db.dataset.id));
   return el;
@@ -902,6 +989,7 @@ function switchToChannel(name) {
   saveCtx(); renderCtxHeader(); renderChannelList(); renderMessages(); closeNav();
 }
 async function switchToDM(friend) {
+  if (!friend || friend.status !== 'mutual') { alert(t('dmNeedMutual')); return; }
   const id = await dmRoomId(state.address, friend.address);
   state.context = { type: 'dm', id, peer: friend };
   saveCtx(); renderCtxHeader(); renderFriendList(); renderMessages(); closeNav();
@@ -970,7 +1058,8 @@ function renderFriendList() {
     const active = state.context.type === 'dm' && state.context.peer && state.context.peer.address === f.address;
     if (active) li.className = 'active';
     const nm = state.addrNick[f.address] || (f.nickname && f.nickname !== f.address ? f.nickname : shortAddr(f.address));
-    li.innerHTML = `<span><span class="nm">${nm}</span><br><span class="sub">${shortAddr(f.address)}</span></span><span class="del" title="${t('delFriend')}">✕</span>`;
+    const stTag = f.status === 'outgoing' ? ` <span class="st outgoing">${t('friendReqWaiting')}</span>` : '';
+    li.innerHTML = `<span><span class="nm">${nm}</span>${stTag}<br><span class="sub">${shortAddr(f.address)}</span></span><span class="del" title="${t('delFriend')}">✕</span>`;
     li.addEventListener('click', (e) => { if (e.target.classList.contains('del')) { removeFriend(f.address); } else { switchToDM(f); } });
     ul.appendChild(li);
   }
@@ -1100,6 +1189,40 @@ function connectGun() {
     if (seen.has(data.id)) return;
     seen.add(data.id);   // 同步登记，消除 Gun .map().on 解析期多次回调同一条消息的竞态
     saveMessage(data).then(() => debounceRender()).catch(err => { /* save failed */ });
+  });
+  // 收到好友请求：验签 + 地址匹配 → 存 friendReq + 弹窗
+  gun.get('web3chat').get('friendreq').get(state.address).map().on(async (data) => {
+    if (!data || !data.from || !data.target || data.target !== state.address || !data.sig) return;
+    if (data.from === state.address) return;
+    try {
+      const ok = await verifyMessage(data.sign, data.from + '|' + data.target + '|' + data.ts);
+      if (!ok) return;
+      if (await deriveAddress(base64ToBuf(data.sign)) !== data.from) return;   // 防冒名
+    } catch (e) { return; }
+    if (state.friends.has(data.from)) {
+      const ex = state.friends.get(data.from);
+      if (ex.status === 'outgoing') { ex.status = 'mutual'; await idbPut('friends', ex); renderFriendList(); }  // 双向都发过请求 → 自动互为好友
+      return;   // 已互为好友则忽略
+    }
+    if (state.incomingReqs.has(data.from)) return;        // 去重
+    state.incomingReqs.set(data.from, { from: data.from, signPubB64: data.sign, dhPubRawB64: data.dh, nickname: data.nick || shortAddr(data.from), ts: data.ts });
+    await idbPut('friendReq', state.incomingReqs.get(data.from));
+    renderFriendReqModal();
+  });
+  // 收到对方接受 ack：把本地 outgoing 翻成 mutual
+  gun.get('web3chat').get('friendack').get(state.address).map().on(async (data) => {
+    if (!data || !data.from || !data.to || data.to !== state.address || !data.sig) return;
+    try {
+      const ok = await verifyMessage(data.sign, data.from + '|' + data.to + '|ack|' + data.ts);
+      if (!ok) return;
+      if (await deriveAddress(base64ToBuf(data.sign)) !== data.from) return;
+    } catch (e) { return; }
+    const f = state.friends.get(data.from);
+    if (f && f.status === 'outgoing') {
+      f.status = 'mutual';
+      await idbPut('friends', f);
+      renderFriendList();
+    }
   });
   gun.get('web3chat').get('del').map().on((data) => { handleDelete(data); });
   watchMeta();   // 启动私有频道元数据监听
@@ -1691,7 +1814,7 @@ function bindUI() {
       const o = JSON.parse(card.trim());
       if (!o.addr) throw new Error('missing addr');
       const addr = await deriveAddress(base64ToBuf(o.sign)); // 用签名公钥推导地址，保证一致
-      addFriendRaw(addr, o.sign, o.dh, o.nick || o.addr);
+      sendFriendRequest(addr, o.sign, o.dh, o.nick || o.addr);
       alert(t('friendAdded') + shortAddr(addr));
     } catch (err) { alert(t('addFailed') + err.message); }
   });
@@ -1713,6 +1836,10 @@ function bindUI() {
   $('alertClose').addEventListener('click', closeAlert);
   $('alertMask').addEventListener('click', closeAlert);
   $('alertOk').addEventListener('click', closeAlert);
+  // 好友请求弹窗：关闭仅隐藏（保留未处理请求，刷新后续弹）
+  const closeFreq = () => { const m = $('friendReqModal'); if (m) m.hidden = true; };
+  $('friendReqClose').addEventListener('click', closeFreq);
+  $('friendReqMask').addEventListener('click', closeFreq);
   $('pubCopyBtn').addEventListener('click', () => {
     navigator.clipboard.writeText(myPubCard()).then(() => alert(t('copied')));
   });
@@ -1756,8 +1883,9 @@ function bindUI() {
   await loadMeta();
   renderMyPub();
   await loadFriends();
+  await loadFriendReqs();
   if (!state.channels.includes(state.context.id) && state.context.type === 'channel') state.context = { type: 'channel', id: 'global', peer: null };
-  if (state.context.type === 'dm' && (!state.context.peer || !state.friends.has(state.context.peer.address))) {
+  if (state.context.type === 'dm' && (!state.context.peer || !state.friends.has(state.context.peer.address) || state.friends.get(state.context.peer.address).status !== 'mutual')) {
     state.context = { type: 'channel', id: state.channels[0] || 'global', peer: null };
   }
   $('addrLabel').textContent = state.nickname || shortAddr(state.address);
@@ -1765,6 +1893,7 @@ function bindUI() {
   bindUI();
   applyI18n();
   renderChannelList(); renderFriendList(); renderCtxHeader();
+  renderFriendReqModal();   // 若有未处理的好友请求，刷新后继续弹窗
   await renderMessages();
   if (state.syncOn) setMode();
 })().catch((err) => {

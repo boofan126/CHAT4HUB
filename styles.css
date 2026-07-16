@@ -366,3 +366,12 @@ html, body {
 /* 频道重名警告条 */
 .nick-warn { margin: 8px 12px 0; padding: 8px 12px; border-radius: 10px; font-size: 13px; line-height: 1.5; background: rgba(255,204,102,.12); border: 1px solid rgba(255,204,102,.45); color: var(--warn); }
 .nick-warn[hidden] { display: none; }
+
+/* 好友请求弹窗行 */
+.freq-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 4px; border-bottom: 1px solid #2a3a63; }
+.freq-row:last-child { border-bottom: none; }
+.freq-info { min-width: 0; }
+.freq-info .sub { color: var(--muted); font-size: 12px; }
+.freq-actions { display: flex; gap: 6px; flex-shrink: 0; }
+/* 好友列表：等待对方接受的徽标 */
+.st.outgoing { font-size: 11px; color: var(--warn); background: rgba(255,204,102,.14); border: 1px solid rgba(255,204,102,.4); border-radius: 6px; padding: 1px 6px; margin-left: 4px; }
