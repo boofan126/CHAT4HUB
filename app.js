@@ -658,7 +658,10 @@ async function sendFriendRequest(address, signPubB64, dhPubB64, nickname) {
     try {
       const ts = Date.now();
       const sig = await signMessage(state.address + '|' + address + '|' + ts);
+      // 双路广播：① 深节点 friendreq.{对方}.{我}（备用）；② 主总线 web3chat.{id}（与聊天消息同一条可靠链路，优先）
       gun.get('web3chat').get('friendreq').get(address).get(state.address).put({ from: state.address, target: address, sign: state.signPubB64, dh: state.dhPubB64, nick: state.nickname || '', ts, sig });
+      const id = crypto.randomUUID();
+      gun.get('web3chat').get(id).put({ id, kind: 'fr_req', from: state.address, target: address, sign: state.signPubB64, dh: state.dhPubB64, nick: state.nickname || '', ts, sig });
       alert(t('friendReqSent'));
     } catch (e) { /* 广播失败不影响本地记录 */ }
   }
@@ -674,9 +677,47 @@ async function acceptFriendRequest(from) {
       const ts = Date.now();
       const sig = await signMessage(state.address + '|' + from + '|ack|' + ts);
       gun.get('web3chat').get('friendack').get(from).get(state.address).put({ from: state.address, to: from, sign: state.signPubB64, ts, sig });
+      const id = crypto.randomUUID();
+      gun.get('web3chat').get(id).put({ id, kind: 'fr_ack', from: state.address, to: from, sign: state.signPubB64, ts, sig });
     } catch (e) {}
   }
   renderFriendReqModal(); renderFriendList();
+}
+// 收到好友请求（主总线 / 深节点双路共用）：验签 + 地址匹配 → 存 friendReq + 弹窗
+async function receiveFriendRequest(data) {
+  if (!data || !data.from || !data.target || data.target !== state.address || !data.sig) { console.log('[FR] drop: guard', data && data.from); return; }
+  if (data.from === state.address) return;
+  try {
+    const ok = await verifyMessage(data.sign, data.from + '|' + data.target + '|' + data.ts, data.sig);
+    if (!ok) { console.log('[FR] drop: verify fail'); return; }
+    if (await deriveAddress(base64ToBuf(data.sign)) !== data.from) { console.log('[FR] drop: derive mismatch'); return; }   // 防冒名
+  } catch (e) { console.log('[FR] drop: err', e && e.message); return; }
+  if (state.friends.has(data.from)) {
+    const ex = state.friends.get(data.from);
+    if (ex.status === 'outgoing') { ex.status = 'mutual'; await idbPut('friends', ex); renderFriendList(); }  // 双向都发过请求 → 自动互为好友
+    return;   // 已互为好友则忽略
+  }
+  if (state.incomingReqs.has(data.from)) return;        // 去重
+  state.incomingReqs.set(data.from, { from: data.from, signPubB64: data.sign, dhPubRawB64: data.dh, nickname: data.nick || shortAddr(data.from), ts: data.ts });
+  await idbPut('friendReq', state.incomingReqs.get(data.from));
+  console.log('[FR] received request from', shortAddr(data.from));
+  renderFriendReqModal();
+}
+// 收到对方接受 ack（主总线 / 深节点双路共用）：把本地 outgoing 翻成 mutual
+async function receiveFriendAck(data) {
+  if (!data || !data.from || !data.to || data.to !== state.address || !data.sig) { console.log('[FA] drop: guard'); return; }
+  try {
+    const ok = await verifyMessage(data.sign, data.from + '|' + data.to + '|ack|' + data.ts, data.sig);
+    if (!ok) { console.log('[FA] drop: verify fail'); return; }
+    if (await deriveAddress(base64ToBuf(data.sign)) !== data.from) { console.log('[FA] drop: derive mismatch'); return; }
+  } catch (e) { console.log('[FA] drop: err', e && e.message); return; }
+  const f = state.friends.get(data.from);
+  if (f && f.status === 'outgoing') {
+    f.status = 'mutual';
+    await idbPut('friends', f);
+    renderFriendList();
+    console.log('[FA] mutual with', shortAddr(data.from));
+  }
 }
 // 拒绝好友请求：仅移除本地未处理记录（保留则刷新后续弹）
 async function rejectFriendRequest(from) {
@@ -1187,6 +1228,9 @@ function connectGun() {
   } catch (e) { /* 某些 Gun 版本不支持 mesh 事件，忽略 */ }
   gun.get('web3chat').map().on((data) => {
     if (!data || !data.id || !data.sig) return;
+    // 好友请求/接受：走主总线（与聊天消息同一条可靠链路），不受 ctx 频道过滤影响
+    if (data.kind === 'fr_req') { receiveFriendRequest(data); return; }
+    if (data.kind === 'fr_ack') { receiveFriendAck(data); return; }
     // ctx 大小写无关匹配（Gun 中继/不同客户端可能产生 Global/global 不一致）
     if ((data.ctx || '').toLowerCase() !== (state.context.id || '').toLowerCase()) return;
     // 频道附件以 fileJson（顶层字符串）同步，这里还原成对象；避免 Gun 把嵌套 file 变成图引用 → 接收端显示 file(0B)
@@ -1201,40 +1245,10 @@ function connectGun() {
     seen.add(data.id);   // 同步登记，消除 Gun .map().on 解析期多次回调同一条消息的竞态
     saveMessage(data).then(() => debounceRender()).catch(err => { /* save failed */ });
   });
-  // 收到好友请求：验签 + 地址匹配 → 存 friendReq + 弹窗
-  gun.get('web3chat').get('friendreq').get(state.address).map().on(async (data) => {
-    if (!data || !data.from || !data.target || data.target !== state.address || !data.sig) return;
-    if (data.from === state.address) return;
-    try {
-      const ok = await verifyMessage(data.sign, data.from + '|' + data.target + '|' + data.ts);
-      if (!ok) return;
-      if (await deriveAddress(base64ToBuf(data.sign)) !== data.from) return;   // 防冒名
-    } catch (e) { return; }
-    if (state.friends.has(data.from)) {
-      const ex = state.friends.get(data.from);
-      if (ex.status === 'outgoing') { ex.status = 'mutual'; await idbPut('friends', ex); renderFriendList(); }  // 双向都发过请求 → 自动互为好友
-      return;   // 已互为好友则忽略
-    }
-    if (state.incomingReqs.has(data.from)) return;        // 去重
-    state.incomingReqs.set(data.from, { from: data.from, signPubB64: data.sign, dhPubRawB64: data.dh, nickname: data.nick || shortAddr(data.from), ts: data.ts });
-    await idbPut('friendReq', state.incomingReqs.get(data.from));
-    renderFriendReqModal();
-  });
-  // 收到对方接受 ack：把本地 outgoing 翻成 mutual
-  gun.get('web3chat').get('friendack').get(state.address).map().on(async (data) => {
-    if (!data || !data.from || !data.to || data.to !== state.address || !data.sig) return;
-    try {
-      const ok = await verifyMessage(data.sign, data.from + '|' + data.to + '|ack|' + data.ts);
-      if (!ok) return;
-      if (await deriveAddress(base64ToBuf(data.sign)) !== data.from) return;
-    } catch (e) { return; }
-    const f = state.friends.get(data.from);
-    if (f && f.status === 'outgoing') {
-      f.status = 'mutual';
-      await idbPut('friends', f);
-      renderFriendList();
-    }
-  });
+  // 收到好友请求（深节点，作为主总线之外的备用链路；主链路在 web3chat.map().on 内处理 fr_req）
+  gun.get('web3chat').get('friendreq').get(state.address).map().on((data) => { receiveFriendRequest(data); });
+  // 收到对方接受 ack（深节点备用链路；主链路在 web3chat.map().on 内处理 fr_ack）
+  gun.get('web3chat').get('friendack').get(state.address).map().on((data) => { receiveFriendAck(data); });
   gun.get('web3chat').get('del').map().on((data) => { handleDelete(data); });
   watchMeta();   // 启动私有频道元数据监听
   startKeepAlive();   // 启动保活 ping（防 Render 免费层休眠断连）
