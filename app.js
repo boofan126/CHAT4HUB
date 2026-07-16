@@ -694,8 +694,24 @@ async function receiveFriendRequest(data) {
   } catch (e) { console.log('[FR] drop: err', e && e.message); return; }
   if (state.friends.has(data.from)) {
     const ex = state.friends.get(data.from);
-    if (ex.status === 'outgoing') { ex.status = 'mutual'; await idbPut('friends', ex); renderFriendList(); }  // 双向都发过请求 → 自动互为好友
-    return;   // 已互为好友则忽略
+    if (ex.status === 'outgoing') { ex.status = 'mutual'; await idbPut('friends', ex); renderFriendList(); return; }  // 双向都发过请求 → 自动互为好友
+    // 已 mutual 的熟人重发请求：典型场景是对方曾删过我、又重新加我。
+    // 此时对方本地停留在 outgoing、被 switchToDM 守卫卡死无法 DM；我直接回一条 ack，
+    // 对方收到后 outgoing→mutual，死锁解开（无需弹窗，反正本来就是好友）。
+    if (ex.status === 'mutual') {
+      if (typeof gun !== 'undefined' && gun && state.syncOn) {
+        try {
+          const ts = Date.now();
+          const sig = await signMessage(state.address + '|' + data.from + '|ack|' + ts);
+          gun.get('web3chat').get('friendack').get(data.from).get(state.address).put({ from: state.address, to: data.from, sign: state.signPubB64, ts, sig });
+          const id = crypto.randomUUID();
+          gun.get('web3chat').get(id).put({ id, kind: 'fr_ack', from: state.address, to: data.from, sign: state.signPubB64, ts, sig });
+          console.log('[FR] 自动回 ack 给重发请求的 mutual 熟人', shortAddr(data.from));
+        } catch (e) {}
+      }
+      return;
+    }
+    return;   // 其他状态忽略
   }
   if (state.incomingReqs.has(data.from)) return;        // 去重
   state.incomingReqs.set(data.from, { from: data.from, signPubB64: data.sign, dhPubRawB64: data.dh, nickname: data.nick || shortAddr(data.from), ts: data.ts });
