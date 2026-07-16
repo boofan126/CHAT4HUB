@@ -483,7 +483,7 @@ async function importMessages(file) {
 
 // 「公钥卡片」：把地址 + 签名公钥 + 加密公钥打包，方便好友一键添加
 function myPubCard() {
-  return JSON.stringify({ addr: state.address, sign: state.signPubB64, dh: state.dhPubB64 });
+  return JSON.stringify({ addr: state.address, sign: state.signPubB64, dh: state.dhPubB64, nick: state.nickname || '' });
 }
 
 async function importIdentity(json) {
@@ -748,7 +748,7 @@ async function renderOne(m, collided) {
   body.textContent = text; // textContent 防 XSS
   if (file) body.appendChild(buildAttachment(file)); // 附件用 DOM 构建，防 XSS
   const ab = el.querySelector('.add');
-  if (ab) ab.addEventListener('click', () => addFriendRaw(ab.dataset.addr, ab.dataset.sign, ab.dataset.dh));
+  if (ab) ab.addEventListener('click', () => addFriendRaw(ab.dataset.addr, ab.dataset.sign, ab.dataset.dh, state.addrNick[ab.dataset.addr] || ''));
   const db = el.querySelector('.del');
   if (db) db.addEventListener('click', () => deleteMessage(db.dataset.id));
   return el;
@@ -969,7 +969,8 @@ function renderFriendList() {
     const li = document.createElement('li');
     const active = state.context.type === 'dm' && state.context.peer && state.context.peer.address === f.address;
     if (active) li.className = 'active';
-    li.innerHTML = `<span><span class="nm">${f.nickname || shortAddr(f.address)}</span><br><span class="sub">${shortAddr(f.address)}</span></span><span class="del" title="${t('delFriend')}">✕</span>`;
+    const nm = state.addrNick[f.address] || (f.nickname && f.nickname !== f.address ? f.nickname : shortAddr(f.address));
+    li.innerHTML = `<span><span class="nm">${nm}</span><br><span class="sub">${shortAddr(f.address)}</span></span><span class="del" title="${t('delFriend')}">✕</span>`;
     li.addEventListener('click', (e) => { if (e.target.classList.contains('del')) { removeFriend(f.address); } else { switchToDM(f); } });
     ul.appendChild(li);
   }
@@ -1690,7 +1691,7 @@ function bindUI() {
       const o = JSON.parse(card.trim());
       if (!o.addr) throw new Error('missing addr');
       const addr = await deriveAddress(base64ToBuf(o.sign)); // 用签名公钥推导地址，保证一致
-      addFriendRaw(addr, o.sign, o.dh, o.addr);
+      addFriendRaw(addr, o.sign, o.dh, o.nick || o.addr);
       alert(t('friendAdded') + shortAddr(addr));
     } catch (err) { alert(t('addFailed') + err.message); }
   });
