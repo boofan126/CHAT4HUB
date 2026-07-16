@@ -74,6 +74,7 @@ const I18N = {
     verified: '✓ 已验证', unverified: '✗ 验签失败',
     e2ee: '🔒 E2EE',
     addFriendBtn: '＋好友',
+    friendTag: '好友',
     lackKeyDecrypt: '🔒 缺少对方公钥，无法解密',
     cannotDecrypt: '🔒 无法解密（密钥不匹配）',
     dmNoKey: '该好友缺少加密公钥，无法加密。请让对方在频道发条消息后点「＋好友」（自动带公钥），或用其「公钥卡片」添加。',
@@ -198,6 +199,7 @@ const I18N = {
     verified: '✓ Verified', unverified: '✗ Verify failed',
     e2ee: '🔒 E2EE',
     addFriendBtn: '+Friend',
+    friendTag: 'Friend',
     lackKeyDecrypt: '🔒 Missing peer public key, cannot decrypt',
     cannotDecrypt: '🔒 Cannot decrypt (key mismatch)',
     dmNoKey: 'This friend has no encryption key, cannot encrypt. Ask them to post in a channel then click "+Friend" (auto-includes keys), or add via their "public key card".',
@@ -816,9 +818,18 @@ async function renderOne(m, collided) {
 
   const vtxt = verified ? t('verified') : t('unverified');
   const vcls = verified ? 'verified' : 'unverified';
-  // 非本人且在频道里 → 提供「加好友」（附带其签名公钥 + 加密公钥）
-  const canAdd = !mine && m.kind === 'channel' && m.pubRawB64 && m.dhPub && !state.friends.has(m.address);
-  const addBtn = canAdd ? `<span class="add" data-addr="${m.address}" data-sign="${m.pubRawB64}" data-dh="${m.dhPub}">${t('addFriendBtn')}</span>` : '';
+  // 频道消息：非本人且有公钥 → 按好友状态显示按钮或标识
+  let addBtn = '';
+  if (!mine && m.kind === 'channel' && m.pubRawB64 && m.dhPub) {
+    const f = state.friends.get(m.address);
+    if (!f) {
+      addBtn = `<span class="add" data-addr="${m.address}" data-sign="${m.pubRawB64}" data-dh="${m.dhPub}">${t('addFriendBtn')}</span>`;
+    } else if (f.status === 'outgoing') {
+      addBtn = `<span class="friend-tag waiting">${t('friendReqWaiting')}</span>`;
+    } else if (f.status === 'mutual') {
+      addBtn = `<span class="friend-tag mutual">${t('friendTag')}</span>`;
+    }
+  }
   const delBtn = mine ? `<span class="del" data-id="${m.id}" title="${t('delMsg')}">✕</span>` : '';
 
   el.innerHTML = `

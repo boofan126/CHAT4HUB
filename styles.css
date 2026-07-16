@@ -132,7 +132,11 @@ html, body {
 .msg .meta .verified { color: var(--ok); }
 .msg .meta .unverified { color: var(--danger); }
 .msg .meta .lock { color: var(--warn); }
-.msg .meta .add { color: var(--accent); cursor: pointer; border: 1px solid #1d5b52; border-radius: 6px; padding: 0 6px; }
+.msg .meta .add { color: var(--warn); cursor: pointer; border: 1px solid rgba(255,204,102,.45); border-radius: 6px; padding: 0 6px; }
+/* 频道消息里的好友状态标识：等待接受=黄、互为好友=绿 */
+.friend-tag { font-size: 12px; border-radius: 6px; padding: 1px 7px; margin-left: 6px; }
+.friend-tag.waiting { color: var(--warn); background: rgba(255,204,102,.14); border: 1px solid rgba(255,204,102,.45); }
+.friend-tag.mutual { color: #1db954; background: rgba(29,185,84,.14); border: 1px solid rgba(29,185,84,.45); }
 .msg .body { font-size: 14px; line-height: 1.5; word-break: break-word; white-space: pre-wrap; }
 /* 附件渲染 */
 .att-wrap { margin-top: 6px; }
