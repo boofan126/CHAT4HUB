@@ -366,6 +366,12 @@ html, body {
   .welcome-topbar { top: 10px; right: 10px; gap: 6px; }
   .welcome-topbar .btn { font-size: 12px; padding: 5px 10px; }
 }
+/* 非安全上下文(HTTP)横幅：加密不可用，提示用 HTTPS 访问 */
+.insecure-banner {
+  margin: 14px 0 0; padding: 12px 16px; border-radius: 12px; max-width: 92%;
+  font-size: 14px; line-height: 1.6; color: #ffd479;
+  background: rgba(255,204,102,.14); border: 1px solid rgba(255,204,102,.5);
+}
 
 /* 频道重名警告条 */
 .nick-warn { margin: 8px 12px 0; padding: 8px 12px; border-radius: 10px; font-size: 13px; line-height: 1.5; background: rgba(255,204,102,.12); border: 1px solid rgba(255,204,102,.45); color: var(--warn); }

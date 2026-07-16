@@ -288,7 +288,7 @@ function applyI18n() {
 async function setLang(lang) {
   if (!I18N[lang]) lang = 'en';   // 未知语言回退 en
   LANG = lang;
-  await idbPut('meta', { key: 'lang', value: LANG });
+  try { await idbPut('meta', { key: 'lang', value: LANG }); } catch (e) { /* IDB 不可用时仅本次不持久化语言偏好 */ }
   applyI18n();
   renderMessages();
 }
@@ -1665,8 +1665,6 @@ function bindUI() {
   appEl = document.querySelector('.app');
   $('navToggle').addEventListener('click', () => appEl.classList.toggle('nav-open'));
   $('overlay').addEventListener('click', () => appEl.classList.remove('nav-open'));
-  document.querySelectorAll('.lang-btn').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
-  $('howToBtn').addEventListener('click', () => { window.open('howto.html', '_blank'); });
   $('sendBtn').addEventListener('click', sendMessage);
   $('msgInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
 
@@ -1883,18 +1881,17 @@ function bindUI() {
   $('memberClose').addEventListener('click', closeMemberModal);
   $('memberMask').addEventListener('click', closeMemberModal);
 
-  // 欢迎页：点击「开始使用」隐藏首屏，露出主应用
-  $('enterBtn').addEventListener('click', () => { $('welcome').hidden = true; });
 }
 
 /* ---------- 启动 ---------- */
 (async function init() {
+  if (!window.crypto || !crypto.subtle) { ensureInsecureBanner(); return; } // 非安全上下文(HTTP)：加密不可用，提示用 HTTPS 访问
   await openDB();
   await loadIdentity();
   await loadMeta();
   renderMyPub();
   await loadFriends();
-  await loadFriendReqs();
+  try { await loadFriendReqs(); } catch (e) { /* 老浏览器/仓库异常不阻断主应用 */ }
   if (!state.channels.includes(state.context.id) && state.context.type === 'channel') state.context = { type: 'channel', id: 'global', peer: null };
   if (state.context.type === 'dm' && (!state.context.peer || !state.friends.has(state.context.peer.address) || state.friends.get(state.context.peer.address).status !== 'mutual')) {
     state.context = { type: 'channel', id: state.channels[0] || 'global', peer: null };
@@ -1911,3 +1908,31 @@ function bindUI() {
   console.error(err);
   alert(t('initFail') + err.message + t('initFailTip'));
 });
+
+/* ---------- 欢迎页入口按钮：独立于主异步 init 绑定，保证任何设备/环境下都能进入 ---------- */
+// 这些按钮（语言切换 / 使用说明 / 开始使用）本就不依赖数据库与密钥，应在脚本加载时立即绑定，
+// 避免主 init 的任何 await 在个别设备/浏览器上抛错时，把欢迎页所有按钮一起「闷死」。
+function ensureInsecureBanner() {
+  if (document.getElementById('insecureBanner')) return;
+  const c = document.querySelector('.welcome-content');
+  if (!c) return;
+  const b = document.createElement('div');
+  b.id = 'insecureBanner';
+  b.className = 'insecure-banner';
+  b.textContent = '⚠️ 当前不是安全连接(HTTPS)，端到端加密功能不可用。请通过 https:// 开头的地址访问本应用。';
+  c.appendChild(b);
+}
+function bindWelcome() {
+  document.querySelectorAll('.lang-btn').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
+  const how = $('howToBtn'); if (how) how.addEventListener('click', () => { window.open('howto.html', '_blank'); });
+  const enter = $('enterBtn');
+  if (enter) {
+    if (window.crypto && crypto.subtle) {
+      enter.addEventListener('click', () => { const w = $('welcome'); if (w) w.hidden = true; });
+    } else {
+      ensureInsecureBanner();   // 非 HTTPS：点击「开始使用」也只提示，不隐藏欢迎页
+    }
+  }
+  try { applyI18n(); } catch (e) {}
+}
+bindWelcome();
