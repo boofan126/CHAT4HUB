@@ -337,6 +337,14 @@ html, body {
 }
 .welcome-sub { margin: 0; max-width: 92%; font-size: clamp(14px, 2.6vw, 19px); color: var(--muted); line-height: 1.6; }
 .welcome-foot { margin: 6px 0 0; font-size: 12px; color: var(--muted); opacity: .7; }
+.policy-row { display: flex; align-items: flex-start; gap: 8px; max-width: 92%; font-size: 13px; color: var(--muted); text-align: left; cursor: pointer; user-select: none; margin: 0; }
+.policy-row input { margin: 2px 0 0; width: 15px; height: 15px; accent-color: var(--accent); flex: 0 0 auto; cursor: pointer; }
+.policy-text { line-height: 1.5; }
+.policy-text a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.policy-tip { display: none; margin: 0; font-size: 12px; color: #ff6b6b; }
+.policy-tip:not([hidden]) { display: block; }
+.policy-row.policy-warn { animation: pwarn .4s ease; }
+@keyframes pwarn { 0%,100%{ transform: translateX(0); } 25%{ transform: translateX(-5px); } 75%{ transform: translateX(5px); } }
 /* 欢迎页解码故障字标：乱码 → 逐字解码定形为 SibyX（源自 Logo V3 动效） */
 .welcome-decode {
   margin: 2px 0; min-height: 1.15em;

@@ -131,6 +131,9 @@ const I18N = {
     enterApp: '开始使用 →',
     pageTitle: 'SibyX · 本地加密聊天',
     welcomeFoot: 'SibyX · 隐私优先的本地加密聊天',
+    policyAgreePre: '我已阅读并同意',
+    policyLink: '《政策说明》',
+    policyTip: '请先阅读并勾选政策说明',
     imgTag: '[图片] ',
     fileTag: '[文件] ',
     cancelAttach: '取消附件',
@@ -256,6 +259,9 @@ const I18N = {
     enterApp: 'Get Started →',
     pageTitle: 'SibyX · Encrypted Local Chat',
     welcomeFoot: 'SibyX · Privacy-first encrypted chat',
+    policyAgreePre: 'I have read and agree to the',
+    policyLink: 'Policy',
+    policyTip: 'Please read and accept the policy first',
     imgTag: '[Image] ',
     fileTag: '[File] ',
     cancelAttach: 'Cancel attachment',
@@ -1942,6 +1948,15 @@ function bindUI() {
 /* ---------- 欢迎页入口按钮：独立于主异步 init 绑定，保证任何设备/环境下都能进入 ---------- */
 // 这些按钮（语言切换 / 使用说明 / 开始使用）本就不依赖数据库与密钥，应在脚本加载时立即绑定，
 // 避免主 init 的任何 await 在个别设备/浏览器上抛错时，把欢迎页所有按钮一起「闷死」。
+/* ---------- 政策说明同意：勾选前置 + localStorage 持久化（版本号控制） ---------- */
+const POLICY_VERSION = '2026-07-17';   // 与 policy.html 生效日期一致；条款变更改此值即强制用户重同意
+const POLICY_KEY = 'sibyx_policy_agreed';
+function policyAgreed() {
+  try { return localStorage.getItem(POLICY_KEY) === POLICY_VERSION; } catch (e) { return false; }
+}
+function markPolicyAgreed() {
+  try { localStorage.setItem(POLICY_KEY, POLICY_VERSION); } catch (e) {}
+}
 function ensureInsecureBanner() {
   if (document.getElementById('insecureBanner')) return;
   const c = document.querySelector('.welcome-content');
@@ -1955,13 +1970,25 @@ function ensureInsecureBanner() {
 function bindWelcome() {
   document.querySelectorAll('.lang-btn').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
   const how = $('howToBtn'); if (how) how.addEventListener('click', () => { window.open('howto.html', '_blank'); });
+  const agree = $('agreePolicy');
+  if (agree && policyAgreed()) agree.checked = true;   // 同版本老用户：预勾选，免重复操作
   const enter = $('enterBtn');
   if (enter) {
-    if (window.crypto && crypto.subtle) {
-      enter.addEventListener('click', () => { const w = $('welcome'); if (w) w.hidden = true; });
-    } else {
-      ensureInsecureBanner();   // 非 HTTPS：点击「开始使用」也只提示，不隐藏欢迎页
-    }
+    enter.addEventListener('click', () => {
+      const a = $('agreePolicy');
+      if (a && !a.checked) {                            // 勾选前置拦截：未勾选则不进入
+        const tip = $('policyTip'); if (tip) tip.hidden = false;
+        const row = $('policyRow');
+        if (row) { row.classList.remove('policy-warn'); void row.offsetWidth; row.classList.add('policy-warn'); }
+        return;
+      }
+      markPolicyAgreed();
+      if (window.crypto && crypto.subtle) {
+        const w = $('welcome'); if (w) w.hidden = true;
+      } else {
+        ensureInsecureBanner();   // 非 HTTPS：已勾选也只提示，不隐藏欢迎页
+      }
+    });
   }
   try { applyI18n(); } catch (e) {}
 }
