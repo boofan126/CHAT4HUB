@@ -188,6 +188,7 @@
           <span class="dot offline" id="peerDot" hidden></span>
           <span id="ctxTitle"># 未选择</span>
           <span class="req-badge" id="memberBadge" hidden></span>
+          <button class="btn ghost sm" id="searchBtn" data-i18n-title="searchTip" title="搜索聊天记录">🔍</button>
           <button class="btn ghost sm" id="memberBtn" hidden data-i18n="memberBtn" title="查看成员 / 批准申请">👥</button>
         </div>
         <div class="typing-hint" id="typingHint" hidden></div>
@@ -234,6 +235,19 @@
           <p class="hint" id="pubHint" data-i18n="pubHintBody">把下面这串公钥卡片发给好友，对方即可添加你并收发端到端加密私聊：</p>
           <code id="pubContent" class="pub-code">—</code>
           <div class="row"><button class="btn primary sm" id="pubCopyBtn" data-i18n="copy">复制</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⑨ 本地搜索弹窗（跨会话检索本机已解密消息，点击结果跳转定位） -->
+    <div class="modal" id="searchModal" hidden>
+      <div class="modal-mask" id="searchMask"></div>
+      <div class="modal-card search-card">
+        <div class="modal-head"><span data-i18n="searchTitle">搜索聊天记录</span><button class="btn ghost sm" id="searchClose" title="关闭">✕</button></div>
+        <div class="modal-body">
+          <input type="text" id="searchInput" data-i18n-ph="searchPh" placeholder="搜索所有会话的消息…" autocomplete="off" spellcheck="false" />
+          <span class="hint" id="searchHint" data-i18n="searchHint">仅在本机检索已解密的消息（私聊 / 私有频道需已持有密钥）。不联网、不上报。</span>
+          <div class="search-results" id="searchResults"></div>
         </div>
       </div>
     </div>
