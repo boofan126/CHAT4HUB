@@ -295,6 +295,7 @@ async function setLang(lang) {
   if (!I18N[lang]) lang = 'en';   // 未知语言回退 en
   LANG = lang;
   try { await idbPut('meta', { key: 'lang', value: LANG }); } catch (e) { /* IDB 不可用时仅本次不持久化语言偏好 */ }
+  try { localStorage.setItem('sibyx_policy_lang', LANG); } catch (e) { /* 仅用于 policy.html 跨页联动，失败不影响主逻辑 */ }
   applyI18n();
   renderMessages();
 }
