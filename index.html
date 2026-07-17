@@ -102,6 +102,21 @@
           <input type="file" id="importFile" accept="application/json" hidden />
         </section>
 
+        <section class="panel backup-panel">
+          <div class="panel-head" data-i18n="backupHead">身份备份 / 恢复</div>
+          <div class="row">
+            <button class="btn ghost sm" id="backupEncBtn" data-i18n-title="backupEncTitle" title="用口令加密导出密钥备份" data-i18n="backupEnc">加密备份</button>
+            <button class="btn ghost sm" id="restoreBtn" data-i18n-title="restoreTitle" title="用助记词或加密备份恢复身份" data-i18n="restore">恢复身份</button>
+          </div>
+          <div class="row" id="mnemonicRow" hidden>
+            <button class="btn ghost sm" id="viewMnemonicBtn" data-i18n-title="viewMnemonicTitle" title="查看你的助记词（仅助记词身份）" data-i18n="viewMnemonic">查看助记词</button>
+          </div>
+          <div class="row" id="convertRow" hidden>
+            <button class="btn ghost sm" id="convertBtn" data-i18n-title="convertTitle" title="把当前随机身份转为助记词身份（将生成新地址）" data-i18n="convert">转为助记词身份</button>
+          </div>
+          <span class="hint" id="backupHint" data-i18n="backupHint">新身份默认由 12 词助记词确定性生成，可凭助记词跨设备恢复。</span>
+        </section>
+
         <section class="panel" id="chanPanel">
           <div class="panel-head" data-i18n="channels">频道 Channels</div>
           <div class="row">
@@ -210,6 +225,63 @@
     </div>
   </div>
 
+  <!-- 助记词展示（首次创建 / 查看） -->
+  <div class="modal" id="mnemonicModal" hidden>
+    <div class="modal-mask" id="mnemonicMask"></div>
+    <div class="modal-card">
+      <div class="modal-head"><span data-i18n="mnemonicTitle">助记词（恢复短语）</span><button class="btn ghost sm" id="mnemonicClose" title="关闭">✕</button></div>
+      <div class="modal-body">
+        <p class="hint warn" data-i18n="mnemonicWarn">⚠️ 这 12 个词 = 你的完整身份。任何人拿到即可恢复你的地址并解密全部私聊。请手抄或离线保存，切勿截图 / 联网存储。</p>
+        <div class="mnemonic-grid" id="mnemonicGrid"></div>
+        <div class="row"><button class="btn primary sm" id="mnemonicCopyBtn" data-i18n="copy">复制</button></div>
+        <label class="chk"><input type="checkbox" id="mnemonicAck" /> <span data-i18n="mnemonicAck">我已离线抄写保存</span></label>
+        <div class="row"><button class="btn primary" id="mnemonicOkBtn" data-i18n="ok" disabled>我已保存，进入</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 备份口令 -->
+  <div class="modal" id="passModal" hidden>
+    <div class="modal-mask" id="passMask"></div>
+    <div class="modal-card">
+      <div class="modal-head"><span data-i18n="backupPassTitle">设置备份口令</span><button class="btn ghost sm" id="passClose" title="关闭">✕</button></div>
+      <div class="modal-body">
+        <p class="hint" data-i18n="backupPassHint">口令用于加密你的密钥备份文件，恢复时需输入同一口令。口令不会被存储，请牢记。</p>
+        <input type="password" id="passInput" placeholder="备份口令" autocomplete="off" />
+        <input type="password" id="passConfirm" placeholder="再次输入口令" autocomplete="off" />
+        <span class="hint err" id="passErr" hidden></span>
+        <div class="row"><button class="btn primary" id="passOkBtn" data-i18n="ok">生成加密备份</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 恢复身份（助记词 / 加密备份文件） -->
+  <div class="modal" id="restoreModal" hidden>
+    <div class="modal-mask" id="restoreMask"></div>
+    <div class="modal-card">
+      <div class="modal-head"><span data-i18n="restoreTitle">恢复身份</span><button class="btn ghost sm" id="restoreClose" title="关闭">✕</button></div>
+      <div class="modal-body">
+        <div class="tabs">
+          <button class="tab active" id="tabMnem" data-i18n="restoreMnemTab">助记词</button>
+          <button class="tab" id="tabFile" data-i18n="restoreFileTab">加密备份文件</button>
+        </div>
+        <div id="restoreMnemPane">
+          <p class="hint" data-i18n="restoreMnemHint">输入你的 12 个助记词（空格分隔），恢复同一地址与密钥。</p>
+          <textarea id="mnemInput" rows="3" placeholder="word1 word2 ... word12"></textarea>
+          <span class="hint err" id="mnemErr" hidden></span>
+          <div class="row"><button class="btn primary" id="mnemRestoreBtn" data-i18n="restore">恢复</button></div>
+        </div>
+        <div id="restoreFilePane" hidden>
+          <p class="hint" data-i18n="restoreFileHint">上传 .sibyxkey 备份文件并输入备份口令。</p>
+          <input type="file" id="backupFile" accept=".sibyxkey,application/json" />
+          <input type="password" id="backupPass" placeholder="备份口令" autocomplete="off" />
+          <span class="hint err" id="fileErr" hidden></span>
+          <div class="row"><button class="btn primary" id="fileRestoreBtn" data-i18n="restore">恢复</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 通用提示弹窗（附件过大等） -->
   <div class="modal" id="alertModal" hidden>
     <div class="modal-mask" id="alertMask"></div>
@@ -231,6 +303,7 @@
       </div>
     </div>
 
+  <script src="wordlist.js"></script>
   <script src="app.js"></script>
   <!-- SibyX 匿名访问统计 beacon（cookieless：不写 cookie/localStorage，IP 由服务端哈希截断） -->
   <script>
