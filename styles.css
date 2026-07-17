@@ -117,9 +117,9 @@ html, body {
 .chk input { width: auto; }
 
 /* 成员面板模态框（路线 B） */
-.modal { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; }
+.modal { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 60; display: flex; align-items: center; justify-content: center; }
 .modal[hidden] { display: none; }   /* 显式作者规则覆盖 UA 的 [hidden]，避免被 display:flex 顶掉 */
-.modal-mask { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+.modal-mask { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,.55); }
 .modal-card { position: relative; z-index: 1; width: min(420px, 92vw); max-height: 80vh; overflow: auto; background: var(--panel); border: 1px solid #2a3a63; border-radius: 14px; padding: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
 .modal-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; color: var(--accent); margin-bottom: 10px; }
 .modal-body { display: flex; flex-direction: column; gap: 8px; }
@@ -225,7 +225,7 @@ html, body {
 
   /* 遮罩层 */
   .overlay {
-    display: block; position: fixed; inset: 0; z-index: 40;
+    display: block; position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 40;
     background: rgba(0,0,0,.5); opacity: 0; pointer-events: none;
     transition: opacity .25s ease;
   }
@@ -289,7 +289,7 @@ html, body {
 
 /* ---------- 欢迎页（首屏） ---------- */
 .welcome-screen {
-  position: fixed; inset: 0; z-index: 1000;
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 1000;
   display: flex; align-items: center; justify-content: center;
   overflow: hidden; padding: 24px;
   background:
@@ -298,9 +298,9 @@ html, body {
   color: var(--text);
 }
 .welcome-screen[hidden] { display: none !important; }
-.welcome-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.welcome-bg { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 0; overflow: hidden; }
 .wg-grid {
-  position: absolute; inset: -2px;
+  position: absolute; top: -2px; right: -2px; bottom: -2px; left: -2px;
   background-image:
     linear-gradient(rgba(45,226,196,.06) 1px, transparent 1px),
     linear-gradient(90deg, rgba(45,226,196,.06) 1px, transparent 1px);
@@ -316,7 +316,7 @@ html, body {
   background: radial-gradient(circle, rgba(108,140,255,.42), transparent 70%);
   animation: wgf 18s ease-in-out infinite alternate-reverse; }
 @keyframes wgf { from { transform: translate(0,0) scale(1); } to { transform: translate(40px,30px) scale(1.15); } }
-.wg-nodes { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .55; }
+.wg-nodes { position: absolute; top: 0; right: 0; bottom: 0; left: 0; width: 100%; height: 100%; opacity: .55; }
 .wg-lines line { stroke: var(--accent); stroke-width: 1.2; opacity: .35;
   stroke-dasharray: 6 10; animation: wgdash 3.2s linear infinite; }
 @keyframes wgdash { to { stroke-dashoffset: -32; } }
@@ -331,11 +331,11 @@ html, body {
 @keyframes wgup { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
 .welcome-logo { width: 88px; height: 88px; filter: drop-shadow(0 0 18px rgba(45,226,196,.5)); }
 .welcome-title {
-  margin: 0; font-size: clamp(28px, 6vw, 52px); font-weight: 800; letter-spacing: .5px; line-height: 1.15;
+  margin: 0; font-size: 40px; font-size: clamp(28px, 6vw, 52px); font-weight: 800; letter-spacing: .5px; line-height: 1.15;
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-.welcome-sub { margin: 0; max-width: 92%; font-size: clamp(14px, 2.6vw, 19px); color: var(--muted); line-height: 1.6; }
+.welcome-sub { margin: 0; max-width: 92%; font-size: 16px; font-size: clamp(14px, 2.6vw, 19px); color: var(--muted); line-height: 1.6; }
 .welcome-foot { margin: 6px 0 0; font-size: 12px; color: var(--muted); opacity: .7; }
 .policy-row { display: flex; align-items: flex-start; gap: 8px; max-width: 92%; font-size: 13px; color: var(--muted); text-align: left; cursor: pointer; user-select: none; margin: 0; }
 .policy-row input { margin: 2px 0 0; width: 15px; height: 15px; accent-color: var(--accent); flex: 0 0 auto; cursor: pointer; }
@@ -349,7 +349,7 @@ html, body {
 .welcome-decode {
   margin: 2px 0; min-height: 1.15em;
   font-family: 'JetBrains Mono', 'Courier New', monospace;
-  font-size: clamp(34px, 7vw, 58px); font-weight: 700; letter-spacing: 8px; line-height: 1.15;
+  font-size: 44px; font-size: clamp(34px, 7vw, 58px); font-weight: 700; letter-spacing: 8px; line-height: 1.15;
   color: #EAF1FF; user-select: none;
   text-shadow: 0 0 22px rgba(45,226,196,.25);
 }
