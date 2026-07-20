@@ -35,10 +35,8 @@ const gun = Gun({
   web: server,
   file: process.env.GUN_FILE || './data', // 中继图数据落盘（重启后仍在）
   radisk: true,
+  peers: ['https://web3chat-e6or.onrender.com/gun','https://relay.chatweb3.online/gun'],
 });
-// P1 三中继镜像化：与官方其他中继互为同图（web3chat-e6or / relay.chatweb3）
-gun.peer('https://web3chat-e6or.onrender.com/gun');
-gun.peer('https://relay.chatweb3.online/gun');
 
 // 健康检查（方便托管平台探测）
 app.get('/', (req, res) => res.send('Web3 chat GunDB relay is running.'));
