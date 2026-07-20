@@ -35,7 +35,7 @@ const gun = Gun({
   web: server,
   file: process.env.GUN_FILE || './data', // 中继图数据落盘（重启后仍在）
   radisk: true,
-  peers: ['https://web3chat-e6or.onrender.com/gun','https://relay.chatweb3.online/gun'],
+  peers: ['https://web3chat-e6or.onrender.com/gun','https://relay.chatweb3.online/gun?peerkey=pR3lAyM3sh_7Qx9vK2nB8wL4d'],
 });
 
 // 健康检查（方便托管平台探测）
