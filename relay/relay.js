@@ -35,7 +35,11 @@ const gun = Gun({
   web: server,
   file: process.env.GUN_FILE || './data', // 中继图数据落盘（重启后仍在）
   radisk: true,
-  peers: ['https://web3chat-e6or.onrender.com/gun','https://relay.chatweb3.online/gun?peerkey=pR3lAyM3sh_7Qx9vK2nB8wL4d'],
+  // #366 真分片（2026-07-28）：chat4hub 绝不可主动 peer 两台分片中继——那会让它成为
+  // web3chat↔Vultr 的全量 gossip 桥，分片白切（T1 探针实测 RECEIVED 的真凶就是本行旧值）。
+  // 全局根镜像不受影响：web3chat 主 gun 仍主动连入本节点，ws 建立即双向 gossip。
+  // 回滚全镜像：Render 面板设 GUN_PEERS=https://web3chat-e6or.onrender.com/gun 重启即可（勿再加 Vultr）。
+  peers: String(process.env.GUN_PEERS || '').split(',').map(s => s.trim()).filter(Boolean),
 });
 
 // 健康检查（方便托管平台探测）
